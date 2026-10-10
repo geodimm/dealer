@@ -31,6 +31,6 @@ describe('share links', () => {
     expect(parseIncoming('#/offers?o=K-20982502')).toEqual({ kind: 'offer', id: 'K-20982502' });
     expect(parseIncoming('#/list?l=%%%not-base64')).toBeNull();
     expect(parseIncoming('#/offers')).toBeNull();
-    expect(parseIncoming('#/offers?s=1&sort=evil&m=999')).toMatchObject({ search: { sort: 'pct', filters: { minPct: 90 } } });
+    expect(parseIncoming('#/offers?s=1&sort=evil&m=999')).toMatchObject({ search: { sort: 'relevance', filters: { minPct: 90 } } });
   });
 });

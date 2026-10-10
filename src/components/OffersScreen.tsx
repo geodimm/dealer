@@ -90,14 +90,17 @@ export function OffersScreen({
 
   const nFilters = activeFilterCount(filters);
   const sortLabel = SORTS.find(([k]) => k === sort)?.[1];
-  const sortChanged = sort !== 'pct' || group !== 'none';
+  const sortChanged = sort !== 'relevance' || group !== 'none';
+  // Hidden words are personal and not part of a shared search.
+  const canShare =
+    !!query.trim() || !!filters.stores.length || !!filters.cats.length || filters.validity !== 'now' || filters.minPct > 0 || sortChanged;
 
   let budget = limit;
   return (
     <>
       <header class="top">
         <div class="searchrow">
-          <label class="search">
+          <label class={`search${query ? ' active' : ''}`}>
             <Icon name="search" size={16} />
             <input
               type="search"
@@ -124,13 +127,22 @@ export function OffersScreen({
               <Icon name="sort" size={18} stroke={2.2} />
             </button>
             {showSort ? (
-              <SortMenu sort={sort} group={group} onSort={setSort} onGroup={setGroup} onEditOrder={onEditOrder} onShareSearch={() => onShareSearch(query)} onClose={() => setShowSort(false)} />
+              <SortMenu sort={sort} group={group} onSort={setSort} onGroup={setGroup} onEditOrder={onEditOrder} onClose={() => setShowSort(false)} />
             ) : null}
           </div>
-          <button class="filterbtn" aria-label={`Филтри${nFilters ? `, ${nFilters} активни` : ''}`} onClick={() => setShowFilters(true)}>
+          <button
+            class={`iconbtn round filter${nFilters ? ' active' : ''}`}
+            aria-label={`Филтри${nFilters ? `, ${nFilters} активни` : ''}`}
+            onClick={() => setShowFilters(true)}
+          >
             <Icon name="filter" size={18} stroke={2.2} />
-            {nFilters ? <span class="count">{nFilters}</span> : null}
+            {nFilters ? <span class="corner">{nFilters}</span> : null}
           </button>
+          {canShare ? (
+            <button class="iconbtn round share" aria-label="Сподели това търсене" onClick={() => onShareSearch(query)}>
+              <Icon name="share" size={18} stroke={2.2} />
+            </button>
+          ) : null}
         </div>
         <p class="sr-only" aria-live="polite">
           {results.length} {results.length === 1 ? 'оферта' : 'оферти'}

@@ -25,7 +25,15 @@ export function useStored<T>(key: string, fallback: T) {
 
 export const useTheme = () => useStored<ThemePref>('theme', 'system');
 export const useFilters = () => useStored<Filters>('filters', DEFAULT_FILTERS);
-export const useSort = () => useStored<SortKey>('sort', 'pct');
+export const useSort = () => useStored<SortKey>('sort', 'relevance');
+
+// One-time switch to the new default sort for people still on the old one.
+try {
+  if (!localStorage.getItem('dealer:sortV2')) {
+    if (localStorage.getItem('dealer:sort') === '"pct"') localStorage.setItem('dealer:sort', '"relevance"');
+    localStorage.setItem('dealer:sortV2', '1');
+  }
+} catch {}
 export const useGroup = () => useStored<GroupKey>('group', 'none');
 export const useList = () => useStored<ListItem[]>('list', []);
 /** Category ids in the user's preferred order (empty = the default supermarket order). */

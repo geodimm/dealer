@@ -92,7 +92,7 @@ export function parseIncoming(hash: string): Incoming {
           validity: v === 'upcoming' || v === 'all' ? v : 'now',
           minPct: Math.max(0, Math.min(90, Number(p.get('m')) || 0)),
         },
-        sort: SORTS.includes(sort) ? sort : 'pct',
+        sort: SORTS.includes(sort) ? sort : 'relevance',
         group: GROUPS.includes(group) ? group : 'none',
       },
     };
