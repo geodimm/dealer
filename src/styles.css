@@ -1502,3 +1502,54 @@ h1.title {
   height: 40px;
   color: var(--muted);
 }
+.lpanel {
+  gap: 4px;
+  padding-bottom: 4px;
+}
+.lthumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #fff;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #c5cbc3;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+.lthumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 3px;
+}
+.listrow.done .lthumb {
+  opacity: 0.5;
+}
+.listrow .lname {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.25;
+}
+.listrow.done .lprice {
+  color: var(--muted);
+}
+.totals {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+.totals .sofar {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--accent-ink);
+}
+.totals .grand {
+  font-size: 18px;
+  font-weight: 700;
+}

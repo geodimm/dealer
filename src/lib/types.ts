@@ -81,6 +81,7 @@ export interface ListItem {
   price: number;
   to: string | null;
   done: boolean;
+  image?: string | null;
 }
 
 export interface InboxItem {

@@ -1,7 +1,21 @@
+import { useState } from 'preact/hooks';
 import type { DataFile, ListItem } from '../lib/types';
 import { StoreBadge } from './StoreBadge';
 import { euro } from '../lib/offers';
 import { Icon } from './Icon';
+
+function Thumb({ src }: { src: string | null | undefined }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <span class="lthumb">
+      {src && !broken ? (
+        <img src={src} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onError={() => setBroken(true)} />
+      ) : (
+        <Icon name="bag" size={20} stroke={1.6} />
+      )}
+    </span>
+  );
+}
 
 export function ListScreen({
   data,
@@ -9,25 +23,36 @@ export function ListScreen({
   setItems,
   onShare,
   onRemove,
+  onClearDone,
 }: {
   data: DataFile | undefined;
   items: ListItem[];
   setItems: (fn: (prev: ListItem[]) => ListItem[]) => void;
   onShare: () => void;
   onRemove: (it: ListItem) => void;
+  onClearDone: () => void;
 }) {
   const stores = data?.stores ?? [];
+  // Older list items were saved without a photo; take it from today's offers.
+  const imageOf = (it: ListItem) => it.image ?? data?.offers.find((o) => o.id === it.id)?.image ?? null;
   const byStore = new Map<string, ListItem[]>();
   for (const it of items) byStore.set(it.store, [...(byStore.get(it.store) ?? []), it]);
-  const total = items.filter((i) => !i.done).reduce((s, i) => s + i.price, 0);
+  const sum = (list: ListItem[]) => list.reduce((s, i) => s + i.price, 0);
+  const done = items.filter((i) => i.done);
 
   return (
     <>
       <header class="top">
         <div class="brandrow">
-          <h1 class="title">Списък</h1>
+          <h1 class="title grow">Списък</h1>
+          {done.length ? (
+            <button class="iconbtn round" style={{ marginRight: '8px' }} aria-label={`Махни отметнатите (${done.length})`} onClick={onClearDone}>
+              <Icon name="trash" size={18} />
+              <span class="corner">{done.length}</span>
+            </button>
+          ) : null}
           {items.length ? (
-            <button class="iconbtn" aria-label="Сподели списъка" onClick={onShare}>
+            <button class="iconbtn round" aria-label="Сподели списъка" onClick={onShare}>
               <Icon name="share" size={18} />
             </button>
           ) : null}
@@ -44,26 +69,24 @@ export function ListScreen({
             {[...byStore.entries()].map(([storeId, list]) => {
               const store = stores.find((s) => s.id === storeId);
               return (
-                <section class="panel" key={storeId}>
+                <section class="panel lpanel" key={storeId}>
                   <div class="row">
-                    <StoreBadge store={store} id={storeId} />
+                    <StoreBadge store={store} id={storeId} size={20} />
                     <strong class="grow">{store?.name ?? storeId}</strong>
-                    <span class="muted small">{list.length}</span>
+                    <span class="muted small">{euro(sum(list))}</span>
                   </div>
                   <div>
                     {list.map((it) => (
                       <div class={`listrow${it.done ? ' done' : ''}`} key={it.id}>
-                        <label class="row grow" style={{ gap: '12px', minHeight: '44px' }}>
+                        <label class="row grow" style={{ gap: '10px', minHeight: '56px' }}>
                           <input
                             type="checkbox"
                             checked={it.done}
                             onChange={() => setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, done: !x.done } : x)))}
                           />
-                          <span class="grow">
-                            <span class="lname">{it.name}</span>
-                            {it.pack ? <span class="muted small"> · {it.pack}</span> : null}
-                          </span>
-                          <strong>{euro(it.price)}</strong>
+                          <Thumb src={imageOf(it)} />
+                          <span class="grow lname">{it.name}</span>
+                          <strong class="lprice">{euro(it.price)}</strong>
                         </label>
                         <button class="iconbtn ghost remove" aria-label={`Махни ${it.name}`} onClick={() => onRemove(it)}>
                           <Icon name="close" size={18} />
@@ -74,14 +97,18 @@ export function ListScreen({
                 </section>
               );
             })}
-            <div class="row" style={{ justifyContent: 'space-between' }}>
-              <span class="muted">Остава: <strong style={{ color: 'var(--text)' }}>{euro(total)}</strong></span>
-              <div class="row">
-                <button class="secondary" onClick={() => setItems((prev) => prev.filter((i) => !i.done))}>
-                  Махни отметнатите
-                </button>
+            <section class="panel totals" aria-live="polite">
+              <div class="stack" style={{ gap: '2px' }}>
+                <span class="muted small">
+                  Досега · {done.length} от {items.length}
+                </span>
+                <span class="sofar">{euro(sum(done))}</span>
               </div>
-            </div>
+              <div class="stack" style={{ gap: '2px', alignItems: 'flex-end' }}>
+                <span class="muted small">Общо</span>
+                <span class="grand">{euro(sum(items))}</span>
+              </div>
+            </section>
           </>
         )}
       </main>

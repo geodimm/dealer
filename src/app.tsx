@@ -269,7 +269,7 @@ export function App() {
       setList((prev) => prev.filter((i) => i.id !== o.id));
       say('Махнато от списъка', () => setList(before));
     } else {
-      setList((prev) => [...prev, { id: o.id, store: o.store, name: o.brand ? `${o.brand} ${o.name}` : o.name, pack: o.pack, price: o.price, to: o.to, done: false }]);
+      setList((prev) => [...prev, { id: o.id, store: o.store, name: o.brand ? `${o.brand} ${o.name}` : o.name, pack: o.pack, price: o.price, to: o.to, done: false, image: o.image }]);
       say('Добавено в списъка');
     }
   };
@@ -394,6 +394,12 @@ export function App() {
             const before = list;
             setList((prev) => prev.filter((x) => x.id !== it.id));
             say(`Махнато: ${it.name}`, () => setList(before));
+          }}
+          onClearDone={() => {
+            const before = list;
+            const n = list.filter((i) => i.done).length;
+            setList((prev) => prev.filter((i) => !i.done));
+            say(`Махнати ${n} отметнати`, () => setList(before));
           }}
         /> : null}
       {route === 'settings' ? (
