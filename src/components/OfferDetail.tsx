@@ -14,6 +14,7 @@ export function OfferDetail({
   inList,
   onWatch,
   onToggleList,
+  onShare,
   onClose,
 }: {
   offer: Offer;
@@ -23,19 +24,12 @@ export function OfferDetail({
   inList: boolean;
   onWatch: () => void;
   onToggleList: () => void;
+  onShare: () => void;
   onClose: () => void;
 }) {
   const when = whenLabel(o, today);
   const validity =
     o.from && o.to ? `${dmy(o.from)} – ${dmy(o.to)}` : o.from ? `от ${dmy(o.from)}` : o.to ? `до ${dmy(o.to)}` : 'не е посочена';
-  const share = async () => {
-    const text = `${o.brand ? `${o.brand} ` : ''}${o.name} – ${euro(o.price)}${o.pct ? ` (−${o.pct}%)` : ''} в ${store?.name ?? o.store}`;
-    try {
-      if (navigator.share) await navigator.share({ text, url: o.url ?? location.href });
-      else await navigator.clipboard.writeText(`${text} ${o.url ?? ''}`.trim());
-    } catch {}
-  };
-
   return (
     <Sheet title={store?.name ?? o.store} onClose={onClose} action={
       <button class="iconbtn ghost" aria-label="Затвори" onClick={onClose}>
@@ -91,15 +85,14 @@ export function OfferDetail({
           <button class="action" onClick={onToggleList}>
             <Icon name={inList ? 'check' : 'list'} size={18} /> {inList ? 'В списъка' : 'Към списъка'}
           </button>
+          <button class="action" onClick={onShare}>
+            <Icon name="share" size={18} /> Сподели
+          </button>
           {o.url ? (
-            <a class="action" href={o.url} target="_blank" rel="noopener">
-              <Icon name="external" size={18} /> В {store?.name ?? 'магазина'}
+            <a class="action wide" href={o.url} target="_blank" rel="noopener">
+              <Icon name="external" size={18} /> Виж в сайта на {store?.name ?? 'магазина'}
             </a>
-          ) : (
-            <button class="action" onClick={share}>
-              <Icon name="share" size={18} /> Сподели
-            </button>
-          )}
+          ) : null}
         </div>
       </div>
     </Sheet>

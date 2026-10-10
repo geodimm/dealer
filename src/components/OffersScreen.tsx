@@ -33,6 +33,9 @@ export function OffersScreen({
   onMenu,
   categories,
   onEditOrder,
+  query,
+  setQuery,
+  onShareSearch,
 }: {
   data: DataFile;
   today: string;
@@ -49,8 +52,10 @@ export function OffersScreen({
   /** Categories in the user's order. */
   categories: Category[];
   onEditOrder: () => void;
+  query: string;
+  setQuery: (q: string) => void;
+  onShareSearch: (q: string) => void;
 }) {
-  const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [showSort, setShowSort] = useState(false);
   const [limit, setLimit] = useState(PAGE);
@@ -119,7 +124,7 @@ export function OffersScreen({
               <Icon name="sort" size={18} stroke={2.2} />
             </button>
             {showSort ? (
-              <SortMenu sort={sort} group={group} onSort={setSort} onGroup={setGroup} onEditOrder={onEditOrder} onClose={() => setShowSort(false)} />
+              <SortMenu sort={sort} group={group} onSort={setSort} onGroup={setGroup} onEditOrder={onEditOrder} onShareSearch={() => onShareSearch(query)} onClose={() => setShowSort(false)} />
             ) : null}
           </div>
           <button class="filterbtn" aria-label={`Филтри${nFilters ? `, ${nFilters} активни` : ''}`} onClick={() => setShowFilters(true)}>

@@ -14,6 +14,7 @@ export function CardMenu({
   onWatch,
   onToggleList,
   onOpen,
+  onShare,
   onClose,
 }: {
   offer: Offer;
@@ -23,12 +24,14 @@ export function CardMenu({
   onWatch: () => void;
   onToggleList: () => void;
   onOpen: () => void;
+  onShare: () => void;
   onClose: () => void;
 }) {
   const items: [IconName, string, () => void][] = [
     ['eyeoff', 'Скрий подобни оферти', onHide],
     ['bell', 'Следи подобни оферти', onWatch],
     [inList ? 'check' : 'list', inList ? 'Махни от списъка' : 'Добави в списъка', onToggleList],
+    ['share', 'Сподели офертата', onShare],
     ['tag', 'Виж офертата', onOpen],
   ];
   return (

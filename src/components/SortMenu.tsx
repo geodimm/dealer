@@ -24,6 +24,7 @@ export function SortMenu({
   onSort,
   onGroup,
   onEditOrder,
+  onShareSearch,
   onClose,
 }: {
   sort: SortKey;
@@ -31,6 +32,7 @@ export function SortMenu({
   onSort: (s: SortKey) => void;
   onGroup: (g: GroupKey) => void;
   onEditOrder: () => void;
+  onShareSearch: () => void;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -84,6 +86,17 @@ export function SortMenu({
             </button>
           ))}
         </div>
+        <hr />
+        <button
+          class="opt"
+          onClick={() => {
+            onClose();
+            onShareSearch();
+          }}
+        >
+          Сподели това търсене
+          <Icon name="share" size={18} />
+        </button>
       </div>
     </>
   );

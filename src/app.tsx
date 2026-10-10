@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { DataFile, InboxItem, Offer, Watch } from './lib/types';
-import { isoDay, orderCategories } from './lib/offers';
+import type { DataFile, InboxItem, ListItem, Offer, Watch } from './lib/types';
+import { euro, isoDay, orderCategories, whenLabel } from './lib/offers';
 import { idbGet } from './lib/idb';
 import { getCachedData, getInbox, getWatches, refresh, saveInbox, saveWatches, watchMatches } from './lib/watch';
 import { useApplyTheme, useCatOrder, useFilters, useGroup, useList, useSort, useStored, useTheme } from './lib/prefs';
@@ -9,6 +9,8 @@ import { OffersScreen } from './components/OffersScreen';
 import { OfferDetail } from './components/OfferDetail';
 import { CardMenu, HideSheet } from './components/CardMenu';
 import { CategoryOrderSheet } from './components/CategoryOrderSheet';
+import { ImportListSheet } from './components/ImportListSheet';
+import { listLink, offerLink, offerText, parseIncoming, searchLink, shareOrCopy, type Incoming } from './lib/share';
 import { WatchEditor } from './components/WatchEditor';
 import { WatchScreen } from './components/WatchScreen';
 import { ListScreen } from './components/ListScreen';
@@ -26,7 +28,7 @@ const ROUTES: [Route, string, IconName][] = [
   ['settings', 'Настройки', 'gear'],
 ];
 const routeFromHash = (): Route => {
-  const r = location.hash.replace(/^#\/?/, '') as Route;
+  const r = location.hash.replace(/^#\/?/, '').split('?')[0] as Route;
   return ROUTES.some(([k]) => k === r) ? r : 'offers';
 };
 
@@ -51,6 +53,9 @@ const termFrom = (o: Offer) =>
 
 export function App() {
   const [route, setRoute] = useState<Route>(routeFromHash);
+  const [query, setQuery] = useState('');
+  const [incoming, setIncoming] = useState<Incoming>(() => parseIncoming(location.hash));
+  const [importItems, setImportItems] = useState<ListItem[] | null>(null);
   const [data, setData] = useState<DataFile | undefined>();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -139,11 +144,67 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const onHash = () => setRoute(routeFromHash());
+    const onHash = () => {
+      setRoute(routeFromHash());
+      const inc = parseIncoming(location.hash);
+      if (inc) setIncoming(inc);
+    };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
   useEffect(() => window.scrollTo({ top: 0 }), [route]);
+
+  // Open shared links: an offer, a search, or a shopping list.
+  useEffect(() => {
+    if (!incoming || (incoming.kind === 'offer' && !data)) return;
+    const clean = (r: Route) => history.replaceState(history.state, '', `${location.pathname}#/${r}`);
+    if (incoming.kind === 'offer') {
+      const o = data!.offers.find((x) => x.id === incoming.id);
+      if (o) setDetail(o);
+      else say('Тази оферта вече не е активна');
+      clean('offers');
+    } else if (incoming.kind === 'search') {
+      const before = { query, filters, sort, group };
+      const s = incoming.search;
+      setQuery(s.q);
+      setFilters({ ...filters, ...s.filters });
+      setSort(s.sort);
+      setGroup(s.group);
+      say('Отворено е споделено търсене', () => {
+        setQuery(before.query);
+        setFilters(before.filters);
+        setSort(before.sort);
+        setGroup(before.group);
+      });
+      clean('offers');
+    } else {
+      setImportItems(incoming.items);
+      clean('list');
+    }
+    setIncoming(null);
+  }, [incoming, data]);
+
+  const shared = (res: 'shared' | 'copied' | 'failed') => {
+    if (res === 'copied') say('Линкът е копиран');
+    else if (res === 'failed') say('Не успях да споделя');
+  };
+  const storeName = (id: string) => data?.stores.find((s) => s.id === id)?.name ?? id;
+  const shareOffer = async (o: Offer) =>
+    shared(await shareOrCopy({ title: o.name, text: offerText(o, storeName(o.store), whenLabel(o, today)?.text), url: offerLink(o) }));
+  const shareSearch = async (q: string) => {
+    const bits = [q.trim() && `„${q.trim()}“`, ...filters.stores.map(storeName)].filter(Boolean).join(', ');
+    shared(
+      await shareOrCopy({
+        title: 'Оферти в dealer',
+        text: bits ? `Виж офертите за ${bits}` : 'Виж тези оферти',
+        url: searchLink({ q, filters, sort, group }),
+      }),
+    );
+  };
+  const shareList = async () => {
+    const text = ['Моят списък за пазаруване:', ...list.map((i) => `• ${i.name}${i.pack ? ` (${i.pack})` : ''} – ${euro(i.price)} · ${storeName(i.store)}`)].join('\n');
+    shared(await shareOrCopy({ title: 'Списък за пазаруване', text, url: listLink(list) }));
+  };
 
   const updateWatches = async (next: Watch[]) => {
     setWatches(next);
@@ -209,6 +270,9 @@ export function App() {
             onMenu={setMenuFor}
             categories={categories}
             onEditOrder={() => setOrderOpen('sort')}
+            query={query}
+            setQuery={setQuery}
+            onShareSearch={shareSearch}
           />
         ) : (
           <div class="loading" style={{ paddingTop: '30vh' }}>
@@ -254,7 +318,7 @@ export function App() {
           }}
         />
       ) : null}
-      {route === 'list' ? <ListScreen data={data} items={list} setItems={setList} /> : null}
+      {route === 'list' ? <ListScreen data={data} items={list} setItems={setList} onShare={shareList} /> : null}
       {route === 'settings' ? (
         <SettingsScreen
           data={data}
@@ -294,7 +358,22 @@ export function App() {
           inList={inList(detail)}
           onWatch={() => openWatchFor(detail)}
           onToggleList={() => toggleList(detail)}
+          onShare={() => shareOffer(detail)}
           onClose={() => setDetail(null)}
+        />
+      ) : null}
+      {importItems ? (
+        <ImportListSheet
+          items={importItems}
+          mine={list}
+          stores={data?.stores ?? []}
+          onClose={() => setImportItems(null)}
+          onAdd={(items) => {
+            setList((prev) => [...prev, ...items.filter((i) => !prev.some((p) => p.id === i.id))]);
+            setImportItems(null);
+            location.hash = '#/list';
+            say(`Добавени ${items.length} в списъка`);
+          }}
         />
       ) : null}
       {orderOpen && data ? (
@@ -332,6 +411,10 @@ export function App() {
           onOpen={() => {
             setMenuFor(null);
             setDetail(menuFor);
+          }}
+          onShare={() => {
+            setMenuFor(null);
+            shareOffer(menuFor);
           }}
           onClose={() => setMenuFor(null)}
         />

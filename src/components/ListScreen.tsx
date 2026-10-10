@@ -7,27 +7,17 @@ export function ListScreen({
   data,
   items,
   setItems,
+  onShare,
 }: {
   data: DataFile | undefined;
   items: ListItem[];
   setItems: (fn: (prev: ListItem[]) => ListItem[]) => void;
+  onShare: () => void;
 }) {
   const stores = data?.stores ?? [];
   const byStore = new Map<string, ListItem[]>();
   for (const it of items) byStore.set(it.store, [...(byStore.get(it.store) ?? []), it]);
   const total = items.filter((i) => !i.done).reduce((s, i) => s + i.price, 0);
-
-  const share = async () => {
-    const lines = [...byStore.entries()].flatMap(([store, list]) => [
-      `${stores.find((s) => s.id === store)?.name ?? store}:`,
-      ...list.map((i) => `${i.done ? '✓' : '•'} ${i.name}${i.pack ? ` (${i.pack})` : ''} – ${euro(i.price)}`),
-    ]);
-    const text = lines.join('\n');
-    try {
-      if (navigator.share) await navigator.share({ text });
-      else await navigator.clipboard.writeText(text);
-    } catch {}
-  };
 
   return (
     <>
@@ -35,7 +25,7 @@ export function ListScreen({
         <div class="brandrow">
           <h1 class="title">Списък</h1>
           {items.length ? (
-            <button class="iconbtn" aria-label="Сподели списъка" onClick={share}>
+            <button class="iconbtn" aria-label="Сподели списъка" onClick={onShare}>
               <Icon name="share" size={18} />
             </button>
           ) : null}

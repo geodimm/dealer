@@ -1125,6 +1125,7 @@ h1.title {
 .toast {
   position: fixed;
   left: 50%;
+  width: max-content;
   bottom: calc(80px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   z-index: 60;
@@ -1329,4 +1330,11 @@ h1.title {
 }
 .reorder .iconbtn:disabled {
   opacity: 0.3;
+}
+.action.wide {
+  grid-column: 1 / -1;
+  border: 0;
+  height: 40px;
+  color: var(--accent-ink);
+  font-weight: 600;
 }
