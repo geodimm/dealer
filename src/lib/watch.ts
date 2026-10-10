@@ -2,24 +2,46 @@
 // page (on open / pull to refresh) and the service worker (periodic
 // background sync), so everything here sticks to fetch + IndexedDB.
 
-import type { DataFile, InboxItem, Offer, Watch } from './types';
+import type { Counts, DataFile, InboxItem, Offer, Watch } from './types';
+import { unitPriceIn } from './units';
 import { idbGet, idbSet } from './idb';
 import { euro, isExpired, isoDay, searchKey, whenLabel } from './offers';
 import { fold, matchesTokens, tokens } from './text';
 
-export function watchMatches(w: Watch, o: Offer, today: string): boolean {
+/** Things on the device that affect matching: typed-in piece counts, stores turned off. */
+export interface MatchCtx {
+  counts?: Counts;
+  hiddenStores?: string[];
+}
+
+export function watchMatches(w: Watch, o: Offer, today: string, ctx: MatchCtx = {}): boolean {
   if (isExpired(o, today)) return false;
+  if (ctx.hiddenStores?.includes(o.store)) return false;
   const key = searchKey(o);
   if (!matchesTokens(key, tokens(w.term))) return false;
   if (w.exclude.some((x) => x && key.includes(fold(x)))) return false;
   const limits = [
     w.maxPrice != null ? o.price <= w.maxPrice : null,
     w.minPct != null ? (o.pct ?? 0) >= w.minPct : null,
-    w.maxUnit != null ? o.unit != null && o.unit <= w.maxUnit : null,
+    w.maxUnit != null ? unitLimitOk(w, o, ctx.counts) : null,
   ].filter((x) => x !== null);
   // Any one satisfied limit is enough ("≤ €5 or ≥ 25% off"); no limits = any match.
   return limits.length === 0 || limits.some(Boolean);
 }
+
+function unitLimitOk(w: Watch, o: Offer, counts: Counts = {}): boolean {
+  if (w.unitKind) {
+    const u = unitPriceIn(o, w.unitKind, counts);
+    if (!u) return !!(w.unitKind === 'pc' && w.includeUnknown);
+    return u.value <= w.maxUnit!;
+  }
+  // Older watches: "per kg or litre", whichever the offer has.
+  return o.unit != null && o.unit <= w.maxUnit!;
+}
+
+export const getCounts = async () => (await idbGet<Counts>('counts')) ?? {};
+export const getHiddenStores = async () => (await idbGet<string[]>('hiddenStores')) ?? [];
+const getCtx = async (): Promise<MatchCtx> => ({ counts: await getCounts(), hiddenStores: await getHiddenStores() });
 
 export const getWatches = async () => (await idbGet<Watch[]>('watches')) ?? [];
 export const getInbox = async () => (await idbGet<InboxItem[]>('inbox')) ?? [];
@@ -35,10 +57,11 @@ export async function saveWatches(watches: Watch[]) {
 
 async function markNotified(watches: Watch[], offers: Offer[], notified: Set<string>) {
   const today = isoDay();
+  const ctx = await getCtx();
   const fresh: { watch: Watch; hits: Offer[] }[] = [];
   const keep = new Set<string>();
   for (const w of watches) {
-    const hits = offers.filter((o) => watchMatches(w, o, today));
+    const hits = offers.filter((o) => watchMatches(w, o, today, ctx));
     const unseen = hits.filter((o) => !notified.has(`${w.id}|${o.id}`));
     if (unseen.length) fresh.push({ watch: w, hits: unseen });
     for (const o of hits) keep.add(`${w.id}|${o.id}`);

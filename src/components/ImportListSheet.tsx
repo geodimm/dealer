@@ -1,8 +1,8 @@
 import { useState } from 'preact/hooks';
+import { StoreBadge } from './StoreBadge';
 import type { ListItem, Store } from '../lib/types';
 import { euro } from '../lib/offers';
 import { Sheet } from './Sheet';
-import { storeColor } from './OfferCard';
 
 /** A shopping list someone shared: pick which items to add to your own list. */
 export function ImportListSheet({
@@ -42,7 +42,7 @@ export function ImportListSheet({
         return (
           <section key={storeId}>
             <div class="row" style={{ marginBottom: '4px' }}>
-              <span class="dot" style={{ background: storeColor(store) }} />
+              <StoreBadge store={store} id={storeId} />
               <strong>{store?.name ?? storeId}</strong>
             </div>
             {list.map((it) => {

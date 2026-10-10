@@ -40,6 +40,47 @@ export function unitPrice(price, pack) {
   return { value: round2(price / qty), unit };
 }
 
+const PIECES = '(бр|броя|брой|капсули|капс|пранета|таблетки|табл|ролки|пакетчета|пакета|торбички|филтри|дози|пелени|кърпи)';
+
+// Typical weight of one capsule per system (grams), for estimating how many
+// capsules a box has when the pack only states its weight.
+const CAPSULE_GRAMS = [
+  [/dolce gusto/i, 7],
+  [/cafissimo|k-fee|caffitaly/i, 7],
+  [/a modo mio/i, 7.5],
+  [/nespresso/i, 5.5],
+];
+
+/**
+ * How many pieces are in the pack: stated ("30 бр.", "16 капсули",
+ * "20+4 бр.", "36 x 21 g") or, for coffee capsules sold by weight, estimated
+ * from a typical capsule weight. Ranges ("168 - 210 г") are never guessed.
+ * @returns {{ n: number, est: boolean } | null}
+ */
+export function pieceCount({ pack = '', name = '', brand = '' }) {
+  const text = `${pack} ${name}`.toLowerCase().replace(/х/g, 'x');
+  let m = text.match(new RegExp(`(\\d+)\\s*\\+\\s*(\\d+)\\s*${PIECES}(?![а-я])`, 'u'));
+  if (m) return { n: +m[1] + +m[2], est: false };
+  if (!new RegExp(`\\d\\s*-\\s*\\d+\\s*${PIECES}`, 'u').test(text)) {
+    m = text.match(new RegExp(`(?<![\\d.,])(\\d+)\\s*${PIECES}(?![а-я])`, 'u'));
+    if (m && +m[1] >= 2) return { n: +m[1], est: false };
+  }
+  m = pack.toLowerCase().replace(/х/g, 'x').match(/^\s*(\d+)\s*x\s*\d/);
+  if (m && +m[1] >= 2) return { n: +m[1], est: false };
+
+  const all = `${brand} ${name}`;
+  if (/кафе|coffee/i.test(all) && /капсул|dolce gusto|nespresso|cafissimo/i.test(all) && !/\d\s*-\s*\d/.test(pack)) {
+    const g = pack.toLowerCase().match(/(\d+(?:[.,]\d+)?)\s*(г|гр|g)(?![а-яa-z])/u);
+    if (g) {
+      const grams = parseFloat(g[1].replace(',', '.'));
+      const per = CAPSULE_GRAMS.find(([re]) => re.test(all))?.[1] ?? 5.6;
+      const n = Math.round(grams / per);
+      if (n >= 2) return { n, est: true };
+    }
+  }
+  return null;
+}
+
 function storeUrl(store, sourceId) {
   if (store === 'kaufland') {
     const id = sourceId.split('-')[1];
@@ -91,6 +132,7 @@ export function normalizeBgpromo(raw) {
   const pct = old ? Math.round((1 - price / old) * 100) : null;
   const pack = clean(raw.package).replace(/\/опаковка$/, '');
   const up = unitPrice(price, pack);
+  const pcs = pieceCount({ pack, name, brand });
 
   return {
     id: clean(raw.promoid),
@@ -104,6 +146,8 @@ export function normalizeBgpromo(raw) {
     pct: pct && pct > 0 ? pct : null,
     unit: up?.value ?? null,
     unitOf: up?.unit ?? null,
+    pcs: pcs?.n ?? null,
+    pcsEst: pcs?.est ?? false,
     from: raw.valid_from || null,
     to: raw.valid_to || null,
     image: raw.image || null,

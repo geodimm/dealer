@@ -6,7 +6,7 @@ export const SORTS: [SortKey, string][] = [
   ['relevance', 'Релевантност'],
   ['pct', 'Най-голяма отстъпка'],
   ['price', 'Най-ниска цена'],
-  ['unit', 'Цена за кг / л'],
+  ['unit', 'Цена за единица'],
   ['ending', 'Изтичат скоро'],
   ['newest', 'Най-нови'],
 ];
@@ -44,28 +44,33 @@ export function SortMenu({
       <div class="menu" role="menu" aria-label="Подреди и групирай">
         <div class="label">Подреди по</div>
         {SORTS.map(([k, label]) => (
-          <button
-            class="opt"
-            role="menuitemradio"
-            aria-checked={sort === k}
-            onClick={() => {
-              onSort(k);
-              onClose();
-            }}
-          >
-            {label}
-            {sort === k ? <Icon name="check" size={18} stroke={2.6} /> : null}
-          </button>
+          <div class="optrow" key={k}>
+            <button
+              class="opt"
+              role="menuitemradio"
+              aria-checked={sort === k}
+              onClick={() => {
+                onSort(k);
+                onClose();
+              }}
+            >
+              {label}
+              {sort === k ? <Icon name="check" size={18} stroke={2.6} /> : null}
+            </button>
+            {k === 'relevance' ? (
+              <button
+                class="iconbtn ghost optcog"
+                aria-label="Подреди категориите за „Релевантност“"
+                onClick={() => {
+                  onClose();
+                  onEditOrder();
+                }}
+              >
+                <Icon name="gear" size={18} />
+              </button>
+            ) : null}
+          </div>
         ))}
-        <button
-          class="linkbtn"
-          onClick={() => {
-            onClose();
-            onEditOrder();
-          }}
-        >
-          Подреди категориите за „Релевантност“…
-        </button>
         <hr />
         <div class="label">Групирай по</div>
         <div class="groups">

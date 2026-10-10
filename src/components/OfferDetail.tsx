@@ -1,7 +1,12 @@
-import type { Category, Offer, Store } from '../lib/types';
-import { euro, unitLabel, whenLabel } from '../lib/offers';
+import { useEffect, useMemo, useState } from 'preact/hooks';
+import type { Category, Counts, Offer, Store } from '../lib/types';
+import { fold } from '../lib/text';
+import { isExpired, searchKey } from '../lib/offers';
+import { piecePrice, unitPriceIn, unitText, weightPrice, type UnitKind } from '../lib/units';
+import { StoreBadge } from './StoreBadge';
+import { euro, whenLabel } from '../lib/offers';
 import { Sheet } from './Sheet';
-import { OfferImage, storeColor } from './OfferCard';
+import { OfferImage } from './OfferCard';
 import { Icon } from './Icon';
 
 const dmy = (d: string) => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
@@ -16,6 +21,11 @@ export function OfferDetail({
   onToggleList,
   onShare,
   onClose,
+  counts,
+  onSetCount,
+  allOffers,
+  stores,
+  onOpenOffer,
 }: {
   offer: Offer;
   store: Store | undefined;
@@ -26,7 +36,33 @@ export function OfferDetail({
   onToggleList: () => void;
   onShare: () => void;
   onClose: () => void;
+  counts: Counts;
+  onSetCount: (n: number | null) => void;
+  allOffers: Offer[];
+  stores: Store[];
+  onOpenOffer: (o: Offer) => void;
 }) {
+  const pp = piecePrice(o, counts);
+  const wp = weightPrice(o);
+  const [countText, setCountText] = useState(counts[o.id] ? String(counts[o.id]) : '');
+  useEffect(() => setCountText(counts[o.id] ? String(counts[o.id]) : ''), [o.id]);
+  // Similar offers: same first words of the name, same category.
+  const candidates = useMemo(() => {
+    const words = fold(o.name).split(' ').slice(0, 2).join(' ');
+    if (!words) return [];
+    return allOffers.filter((x) => x.cat === o.cat && !isExpired(x, today) && searchKey(x).includes(words));
+  }, [o, allOffers, today]);
+  // Compare per piece when this offer or any similar one has a piece count.
+  const kind: UnitKind | null = pp || candidates.some((x) => piecePrice(x, counts)) ? 'pc' : wp?.kind ?? null;
+
+  const similar = useMemo(() => {
+    if (!kind) return [];
+    return candidates
+      .map((x) => ({ x, u: unitPriceIn(x, kind, counts) }))
+      .sort((a, b) => (a.u ? a.u.value : Infinity) - (b.u ? b.u.value : Infinity))
+      .slice(0, 10);
+  }, [candidates, counts, kind]);
+  const cheapest = similar.find((s) => s.u)?.u?.value;
   const when = whenLabel(o, today);
   const validity =
     o.from && o.to ? `${dmy(o.from)} – ${dmy(o.to)}` : o.from ? `от ${dmy(o.from)}` : o.to ? `до ${dmy(o.to)}` : 'не е посочена';
@@ -54,7 +90,7 @@ export function OfferDetail({
         <dl class="facts">
           <dt>Магазин</dt>
           <dd class="row" style={{ gap: '6px' }}>
-            <span class="dot" style={{ background: storeColor(store) }} />
+            <StoreBadge store={store} id={o.store} />
             {store?.name ?? o.store}
           </dd>
           {o.pack ? (
@@ -63,10 +99,24 @@ export function OfferDetail({
               <dd>{o.pack}</dd>
             </>
           ) : null}
-          {unitLabel(o) ? (
+          <dt>Цена за брой</dt>
+          <dd>
+            {pp ? (
+              <>
+                <strong>{unitText(pp)}</strong>
+                <span class="muted small">
+                  {' '}
+                  · {pp.count} бр.{pp.user ? ' (въведено от теб)' : pp.est ? ' (прибл., по грамажа)' : ''}
+                </span>
+              </>
+            ) : (
+              <span class="muted">неизвестна</span>
+            )}
+          </dd>
+          {wp ? (
             <>
-              <dt>Цена за {o.unitOf === 'kg' ? 'кг' : 'л'}</dt>
-              <dd>{unitLabel(o)}</dd>
+              <dt>Цена за {wp.kind === 'kg' ? 'кг' : 'л'}</dt>
+              <dd>{unitText(wp)}</dd>
             </>
           ) : null}
           <dt>Валидност</dt>
@@ -78,6 +128,45 @@ export function OfferDetail({
             </>
           ) : null}
         </dl>
+        <div class="countedit">
+          <label class="field" style={{ flex: 1 }}>
+            <span class="hint">Брой в опаковката (капсули, пранета, ролки…)</span>
+            <input
+              inputMode="numeric"
+              value={countText}
+              placeholder={o.pcs ? `${o.pcs}${o.pcsEst ? ' (прибл.)' : ''}` : 'напр. 30'}
+              onInput={(e) => setCountText(e.currentTarget.value.replace(/[^\d]/g, ''))}
+            />
+          </label>
+          <button
+            class="secondary"
+            style={{ height: '46px', alignSelf: 'flex-end' }}
+            onClick={() => onSetCount(countText ? Number(countText) : null)}
+          >
+            {countText ? 'Запази' : counts[o.id] ? 'Изчисти' : 'Запази'}
+          </button>
+        </div>
+        {similar.length > 1 ? (
+          <section class="compare">
+            <h3 class="label">Сравни по цена за {kind === 'pc' ? 'брой' : kind === 'kg' ? 'кг' : 'л'}</h3>
+            {similar.map(({ x, u }) => (
+              <button class={`cmprow${x.id === o.id ? ' current' : ''}`} onClick={() => x.id !== o.id && onOpenOffer(x)}>
+                <StoreBadge store={stores.find((s) => s.id === x.store)} id={x.store} />
+                <span class="grow" style={{ minWidth: 0 }}>
+                  <span class="cname">
+                    {x.brand ? `${x.brand} ` : ''}
+                    {x.name}
+                  </span>
+                  <span class="muted small">
+                    {x.pack || '—'} · {euro(x.price)}
+                  </span>
+                </span>
+                <span class={`cunit${u && u.value === cheapest ? ' best' : ''}`}>{u ? unitText(u) : 'няма брой'}</span>
+              </button>
+            ))}
+            {kind === 'pc' ? <p class="hint">Въведи броя в опаковката на офертите без брой, за да ги сравниш и тях.</p> : null}
+          </section>
+        ) : null}
         <div class="actions">
           <button class="action full" onClick={onWatch}>
             <Icon name="bell" size={18} /> Следи подобни оферти

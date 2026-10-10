@@ -1,8 +1,9 @@
 import { useMemo } from 'preact/hooks';
+import { StoreBadge } from './StoreBadge';
 import type { DataFile, Offer, Watch } from '../lib/types';
-import { watchMatches } from '../lib/watch';
+import { watchMatches, type MatchCtx } from '../lib/watch';
+import { unitName } from '../lib/units';
 import { euro, whenLabel } from '../lib/offers';
-import { storeColor } from './OfferCard';
 import { Icon } from './Icon';
 
 const SHOW = 4;
@@ -11,7 +12,8 @@ export function rulesText(w: Watch): string[] {
   const r: string[] = [];
   if (w.maxPrice != null) r.push(`цена ≤ ${euro(w.maxPrice)}`);
   if (w.minPct != null) r.push(`${r.length ? 'или ' : ''}отстъпка ≥ ${w.minPct}%`);
-  if (w.maxUnit != null) r.push(`${r.length ? 'или ' : ''}≤ ${euro(w.maxUnit)}/кг·л`);
+  if (w.maxUnit != null)
+    r.push(`${r.length ? 'или ' : ''}≤ €${w.maxUnit.toFixed(w.unitKind === 'pc' && w.maxUnit < 1 ? 3 : 2)}/${w.unitKind ? unitName(w.unitKind) : 'кг·л'}`);
   if (!r.length) r.push('всяка цена');
   if (w.exclude.length) r.push(`без „${w.exclude.join('“, „')}“`);
   return r;
@@ -19,6 +21,7 @@ export function rulesText(w: Watch): string[] {
 
 export function WatchScreen({
   data,
+  ctx,
   watches,
   today,
   onNew,
@@ -26,6 +29,7 @@ export function WatchScreen({
   onOpen,
 }: {
   data: DataFile | undefined;
+  ctx: MatchCtx;
   watches: Watch[];
   today: string;
   onNew: () => void;
@@ -35,9 +39,9 @@ export function WatchScreen({
   const hits = useMemo(() => {
     const m = new Map<string, Offer[]>();
     for (const w of watches)
-      m.set(w.id, (data?.offers ?? []).filter((o) => watchMatches(w, o, today)).sort((a, b) => a.price - b.price));
+      m.set(w.id, (data?.offers ?? []).filter((o) => watchMatches(w, o, today, ctx)).sort((a, b) => a.price - b.price));
     return m;
-  }, [data, watches, today]);
+  }, [data, watches, today, ctx]);
 
   return (
     <>
@@ -75,7 +79,7 @@ export function WatchScreen({
                   const when = whenLabel(o, today);
                   return (
                     <button class="hit" onClick={() => onOpen(o)}>
-                      <span class="dot" style={{ background: storeColor(store) }} />
+                      <StoreBadge store={store} id={o.store} />
                       <span class="grow" style={{ display: 'flex', flexDirection: 'column' }}>
                         <span class="hname">
                           {o.brand ? `${o.brand} ` : ''}

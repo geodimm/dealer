@@ -107,3 +107,29 @@ describe('categorize: aisle collisions', () => {
     ['Морски дарове в сос', 'fish'],
   ])('%s → %s', (name, cat) => expect(categorize({ name })).toBe(cat));
 });
+
+describe('pieceCount', () => {
+  // @ts-expect-error – plain JS module
+  const load = () => import('../scripts/normalize.mjs');
+  it.each([
+    [{ pack: '30 бр.', name: 'Кафе капсули' }, { n: 30, est: false }],
+    [{ pack: '16 бр.', name: 'Кафе капсули 16 бр.' }, { n: 16, est: false }],
+    [{ pack: '36 x 21 g', name: 'Капсули за пране 5 в 1' }, { n: 36, est: false }],
+    [{ pack: '', name: 'Тоалетна хартия 20+4 ролки' }, { n: 24, est: false }],
+    [{ pack: '60 пранета', name: 'Гел за пране' }, { n: 60, est: false }],
+    [{ pack: '56 г', name: 'Кафе капсули различни видове', brand: 'Dallmayr' }, { n: 10, est: true }],
+    [{ pack: '112 г', name: 'Кафе капсули Dolce Gusto', brand: 'Nescafe' }, { n: 16, est: true }],
+  ])('%o → %o', async (input, expected) => {
+    const { pieceCount } = await load();
+    expect(pieceCount(input)).toEqual(expected);
+  });
+  it.each([
+    { pack: '168 - 210 г', name: 'Кафе капсули Dolce Gusto', brand: 'NESCAFE' },
+    { pack: '1 бр.', name: 'Тиган' },
+    { pack: '250 г', name: 'Краве масло' },
+    { pack: '10-12 бр.', name: 'Яйца' },
+  ])('no count for %o', async (input) => {
+    const { pieceCount } = await load();
+    expect(pieceCount(input)).toBeNull();
+  });
+});

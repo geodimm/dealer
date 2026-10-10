@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { Category, DataFile, Filters, GroupKey, Offer, SortKey } from '../lib/types';
+import type { Category, Counts, DataFile, Filters, GroupKey, Offer, SortKey } from '../lib/types';
 import { filterOffers, groupOffers, sortOffers } from '../lib/offers';
 import { activeFilterCount } from '../lib/prefs';
 import { OfferCard } from './OfferCard';
+import { StoreBadge } from './StoreBadge';
+import { bestUnit, unitText } from '../lib/units';
+import { useStored } from '../lib/prefs';
 import { FilterSheet } from './FilterSheet';
 import { SortMenu, SORTS } from './SortMenu';
 import { Icon } from './Icon';
@@ -36,6 +39,7 @@ export function OffersScreen({
   query,
   setQuery,
   onShareSearch,
+  counts,
 }: {
   data: DataFile;
   today: string;
@@ -55,7 +59,9 @@ export function OffersScreen({
   query: string;
   setQuery: (q: string) => void;
   onShareSearch: (q: string) => void;
+  counts: Counts;
 }) {
+  const [collapsed, setCollapsed] = useStored<string[]>('collapsed', []);
   const [showFilters, setShowFilters] = useState(false);
   const [showSort, setShowSort] = useState(false);
   const [limit, setLimit] = useState(PAGE);
@@ -64,11 +70,12 @@ export function OffersScreen({
   const results = useMemo(
     () => {
       const rank = Object.fromEntries(categories.map((c, i) => [c.id, i]));
-      return sortOffers(filterOffers(data.offers, q, filters, today), sort, rank);
+      return sortOffers(filterOffers(data.offers, q, filters, today), sort, rank, counts);
     },
-    [data, q, filters, sort, today, categories],
+    [data, q, filters, sort, today, categories, counts],
   );
   const groups = useMemo(() => groupOffers(results, group, data.stores, categories, today), [results, group, data, today, categories]);
+  const allCollapsed = groups.length > 1 && groups.every((g) => collapsed.includes(`${group}:${g.key}`));
   const catCounts = useMemo(() => {
     const c: Record<string, number> = {};
     for (const o of data.offers) c[o.cat] = (c[o.cat] ?? 0) + 1;
@@ -156,20 +163,38 @@ export function OffersScreen({
             {q || nFilters ? 'Опитай с друга дума или по-малко филтри.' : 'Данните още не са заредени.'}
           </div>
         ) : (
-          groups.map((g) => {
-            if (budget <= 0) return null;
-            const items = g.items.slice(0, budget);
+          <>
+          {groups.length > 1 ? (
+            <div class="row" style={{ justifyContent: 'flex-end', margin: '-4px 0 4px' }}>
+              <button class="textbtn small" onClick={() => setCollapsed(allCollapsed ? [] : groups.map((g) => `${group}:${g.key}`))}>
+                {allCollapsed ? 'Разгъни всички' : 'Свий всички'}
+              </button>
+            </div>
+          ) : null}
+          {groups.map((g) => {
+            const ck = `${group}:${g.key}`;
+            const closed = g.title ? collapsed.includes(ck) : false;
+            if (budget <= 0 && !closed) return null;
+            const items = closed ? [] : g.items.slice(0, budget);
             budget -= items.length;
             return (
               <section class="group" key={g.key}>
                 {g.title ? (
-                  <div class="grouphead">
-                    {g.color ? <span class="dot" style={{ background: g.key === 'lidl' ? 'var(--lidl)' : g.color }} /> : null}
-                    <span class="name">{g.title}</span>
-                    <span class="n">{g.items.length}</span>
+                  <button
+                    class="grouphead"
+                    aria-expanded={!closed}
+                    onClick={() => setCollapsed(closed ? collapsed.filter((k) => k !== ck) : [...collapsed, ck])}
+                  >
+                    <span class={`chev${closed ? ' closed' : ''}`} aria-hidden="true">
+                      <Icon name="chevron" size={16} stroke={2.6} />
+                    </span>
+                    {group === 'store' ? <StoreBadge store={data.stores.find((s) => s.id === g.key)} id={g.key} size={20} /> : null}
+                    <span class="gname">{g.title}</span>
+                    <span class="gcount">{g.items.length}</span>
                     <span class="rule" />
-                  </div>
+                  </button>
                 ) : null}
+                {closed ? null : (
                 <div class="grid">
                   {items.map((o) => (
                     <OfferCard
@@ -181,12 +206,15 @@ export function OffersScreen({
                       onOpen={onOpen}
                       onCart={onCart}
                       onMenu={onMenu}
+                      unit={unitText(bestUnit(o, counts))}
                     />
                   ))}
                 </div>
+                )}
               </section>
             );
-          })
+          })}
+          </>
         )}
         {limit < results.length ? <div class="sentinel" ref={sentinel} /> : null}
       </main>

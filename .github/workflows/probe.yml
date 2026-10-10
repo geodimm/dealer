@@ -19,4 +19,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node scripts/probe.mjs ${{ inputs.urls }}
+      - name: Probe
+        env:
+          URLS: ${{ inputs.urls }}
+        run: node scripts/probe.mjs $URLS

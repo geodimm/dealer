@@ -1,7 +1,8 @@
 import { memo } from 'preact/compat';
+import { StoreBadge } from './StoreBadge';
 import { useRef, useState } from 'preact/hooks';
 import type { Offer, Store } from '../lib/types';
-import { euro, unitLabel, whenLabel } from '../lib/offers';
+import { euro, whenLabel } from '../lib/offers';
 import { Icon } from './Icon';
 
 export function storeColor(store: Store | undefined) {
@@ -32,13 +33,14 @@ interface Props {
   onOpen: (o: Offer) => void;
   onCart: (o: Offer) => void;
   onMenu: (o: Offer) => void;
+  /** Unit price text, e.g. "€0.21/бр." (depends on counts the user typed in). */
+  unit: string;
 }
 
 const HOLD_MS = 450;
 
-export const OfferCard = memo(function OfferCard({ offer: o, store, today, inList, onOpen, onCart, onMenu }: Props) {
+export const OfferCard = memo(function OfferCard({ offer: o, store, today, inList, onOpen, onCart, onMenu, unit }: Props) {
   const when = whenLabel(o, today);
-  const unit = unitLabel(o);
 
   // Long press (or right click) opens the card menu. Android/desktop fire
   // `contextmenu`; iOS doesn't, so a touch timer covers it. Whichever fires
@@ -107,7 +109,7 @@ export const OfferCard = memo(function OfferCard({ offer: o, store, today, inLis
         <OfferImage offer={o} class="media" />
         {o.pct ? <span class="badge">−{o.pct}%</span> : null}
         <span class="storepill">
-          <span class="dot" style={{ background: storeColor(store) }} />
+          <StoreBadge store={store} id={o.store} size={16} />
           {store?.name ?? o.store}
         </span>
         <button

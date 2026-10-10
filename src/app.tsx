@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { DataFile, InboxItem, ListItem, Offer, Watch } from './lib/types';
+import type { Counts, DataFile, InboxItem, ListItem, Offer, Watch } from './lib/types';
 import { euro, isoDay, orderCategories, whenLabel } from './lib/offers';
 import { idbGet } from './lib/idb';
-import { getCachedData, getInbox, getWatches, refresh, saveInbox, saveWatches, watchMatches } from './lib/watch';
+import { getCachedData, getCounts, getInbox, getWatches, refresh, saveInbox, saveWatches, watchMatches } from './lib/watch';
+import { idbSet } from './lib/idb';
 import { useApplyTheme, useCatOrder, useFilters, useGroup, useList, useSort, useStored, useTheme } from './lib/prefs';
 import { backgroundStatus, disableBackground, enableAlerts, permission, showNotification, type Background } from './lib/alerts';
 import { OffersScreen } from './components/OffersScreen';
@@ -18,6 +19,7 @@ import { InboxScreen } from './components/InboxScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { Icon, type IconName } from './components/Icon';
 import { useInstall } from './lib/install';
+import { piecePrice } from './lib/units';
 import { InstallCard } from './components/InstallCard';
 
 type Route = 'offers' | 'watch' | 'inbox' | 'list' | 'settings';
@@ -78,6 +80,19 @@ export function App() {
   const [group, setGroup] = useGroup();
   const [list, setList] = useList();
   const [catOrder, setCatOrder] = useCatOrder();
+  const [hiddenStores, setHiddenStores] = useStored<string[]>('hiddenStores', []);
+  const [counts, setCounts] = useState<Counts>({});
+  // The background check (service worker) can't read localStorage; mirror to IndexedDB.
+  useEffect(() => {
+    idbSet('hiddenStores', hiddenStores);
+  }, [hiddenStores]);
+  const setCount = async (id: string, n: number | null) => {
+    const next = { ...counts };
+    if (n && n > 0) next[id] = Math.round(n);
+    else delete next[id];
+    setCounts(next);
+    await idbSet('counts', next);
+  };
   const [orderOpen, setOrderOpen] = useState<null | 'sort' | 'settings'>(null);
   const [alertsWanted, setAlertsWanted] = useStored('alerts', false);
   const alertsOn = alertsWanted && perm === 'granted';
@@ -85,6 +100,15 @@ export function App() {
   const app = useInstall();
 
   const today = isoDay();
+  // What the screens show: everything except the stores the user turned off.
+  const shown = useMemo<DataFile | undefined>(
+    () =>
+      data && hiddenStores.length
+        ? { ...data, stores: data.stores.filter((s) => !hiddenStores.includes(s.id)), offers: data.offers.filter((o) => !hiddenStores.includes(o.store)) }
+        : data,
+    [data, hiddenStores],
+  );
+  const matchCtx = useMemo(() => ({ counts, hiddenStores }), [counts, hiddenStores]);
   const categories = useMemo(() => (data ? orderCategories(data.categories, catOrder) : []), [data, catOrder]);
   const catCounts = useMemo(() => {
     const c: Record<string, number> = {};
@@ -123,6 +147,7 @@ export function App() {
         setLoading(false);
       }
       setWatches(await getWatches());
+      setCounts(await getCounts());
       setInbox(await getInbox());
       setCheckedAt((await idbGet<number>('checkedAt')) ?? null);
       setBackground(await backgroundStatus());
@@ -251,15 +276,17 @@ export function App() {
 
   // Followed products that have at least one offer right now.
   const watchesOnSale = useMemo(
-    () => (data ? watches.filter((w) => data.offers.some((o) => watchMatches(w, o, today))).length : 0),
-    [data, watches, today],
+    () => (data ? watches.filter((w) => data.offers.some((o) => watchMatches(w, o, today, matchCtx))).length : 0),
+    [data, watches, today, matchCtx],
   );
   const unread = inbox.filter((i) => !i.read).length;
   const badge = (key: Route) => (key === 'inbox' ? watchesOnSale : key === 'list' ? list.filter((i) => !i.done).length : 0);
 
   const openWatchFor = (o: Offer) => {
     setDetail(null);
-    setEditing({ watch: newWatch(termFrom(o)), isNew: true });
+    // Start with the unit this kind of product is compared by: pieces for capsules etc.
+    const unitKind = piecePrice(o, counts) ? 'pc' : (o.unitOf ?? 'kg');
+    setEditing({ watch: { ...newWatch(termFrom(o)), unitKind }, isNew: true });
   };
 
   return (
@@ -267,7 +294,8 @@ export function App() {
       {route === 'offers' ? (
         data ? (
           <OffersScreen
-            data={data}
+            data={shown!}
+            counts={counts}
             today={today}
             filters={filters}
             setFilters={setFilters}
@@ -331,7 +359,8 @@ export function App() {
           ) : null}
           {route === 'watch' ? (
             <WatchScreen
-              data={data}
+              data={shown}
+              ctx={matchCtx}
               watches={watches}
               today={today}
               onNew={() => setEditing({ watch: newWatch(), isNew: true })}
@@ -384,6 +413,8 @@ export function App() {
           onInstall={installApp}
           categories={categories}
           onEditOrder={() => setOrderOpen('settings')}
+          hiddenStores={hiddenStores}
+          setHiddenStores={setHiddenStores}
         />
       ) : null}
 
@@ -408,6 +439,14 @@ export function App() {
           onToggleList={() => toggleList(detail)}
           onShare={() => shareOffer(detail)}
           onClose={() => setDetail(null)}
+          counts={counts}
+          onSetCount={async (n) => {
+            await setCount(detail.id, n);
+            say(n ? `Запазено: ${n} бр. в опаковката` : 'Броят е изчистен');
+          }}
+          allOffers={shown?.offers ?? []}
+          stores={data.stores}
+          onOpenOffer={setDetail}
         />
       ) : null}
       {importItems ? (
@@ -483,8 +522,9 @@ export function App() {
       {editing ? (
         <WatchEditor
           initial={editing.watch}
-          offers={data?.offers ?? []}
+          offers={shown?.offers ?? []}
           today={today}
+          ctx={matchCtx}
           onClose={() => setEditing(null)}
           onDelete={
             editing.isNew

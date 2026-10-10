@@ -10,6 +10,9 @@ export interface Offer {
   pct: number | null;
   unit: number | null;
   unitOf: 'kg' | 'l' | null;
+  /** Pieces in the pack (capsules, washes, rolls…), stated or estimated. */
+  pcs?: number | null;
+  pcsEst?: boolean;
   from: string | null;
   to: string | null;
   image: string | null;
@@ -42,6 +45,9 @@ export interface DataFile {
 }
 
 export type Validity = 'now' | 'upcoming' | 'all';
+/** Piece counts the user typed in, by offer id. */
+export type Counts = Record<string, number>;
+
 export type SortKey = 'relevance' | 'pct' | 'price' | 'unit' | 'ending' | 'newest';
 export type GroupKey = 'none' | 'store' | 'cat' | 'validity';
 
@@ -59,6 +65,10 @@ export interface Watch {
   maxPrice: number | null;
   minPct: number | null;
   maxUnit: number | null;
+  /** What maxUnit is per: piece, kg or litre (missing = kg or litre, older watches). */
+  unitKind?: 'pc' | 'kg' | 'l' | null;
+  /** For per-piece limits: also match offers whose piece count is unknown. */
+  includeUnknown?: boolean;
   exclude: string[];
   createdAt: number;
 }

@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import type { Category, Filters, Store, Validity } from '../lib/types';
 import { DEFAULT_FILTERS } from '../lib/prefs';
 import { Sheet } from './Sheet';
-import { storeColor } from './OfferCard';
+import { StoreBadge } from './StoreBadge';
 import { Icon } from './Icon';
 
 const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
@@ -51,7 +51,7 @@ export function FilterSheet({
         <div class="tiles">
           {stores.map((s) => (
             <button class="tile" aria-pressed={f.stores.includes(s.id)} onClick={() => set({ stores: toggle(f.stores, s.id) })}>
-              <span class="swatch" style={{ background: storeColor(s) }} />
+              <StoreBadge store={s} size={22} />
               <span class="tname">{s.name}</span>
               <span class="tsub">{s.count} оферти</span>
             </button>

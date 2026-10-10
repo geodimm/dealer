@@ -255,15 +255,35 @@ h1.title {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 4px 0 10px;
+  width: 100%;
+  min-height: 40px;
+  margin: 0 0 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
 }
-.grouphead .name {
+.grouphead .gname {
   font-size: 16px;
   font-weight: 700;
+  line-height: 1.2;
 }
-.grouphead .n {
+.grouphead .gcount {
   font-size: 13px;
+  line-height: 1.2;
   color: var(--muted);
+}
+.grouphead .chev {
+  display: flex;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.grouphead .chev.closed {
+  transform: rotate(-90deg);
+}
+.textbtn.small {
+  font-size: 13px;
+  height: 32px;
 }
 .grouphead .rule {
   flex: 1;
@@ -1408,4 +1428,77 @@ h1.title {
     transform: scale(0.6);
     opacity: 0;
   }
+}
+.storebadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 5px;
+  font-weight: 900;
+  line-height: 1;
+  font-family: 'Geologica', system-ui, sans-serif;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.fields2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.countedit {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.compare {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.compare .label {
+  margin-bottom: 6px;
+}
+.cmprow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  text-align: left;
+  width: 100%;
+}
+.cmprow.current {
+  background: var(--seg);
+}
+.cmprow .cname {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cmprow .cunit {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.cmprow .cunit.best {
+  color: var(--accent-ink);
+}
+.optrow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.optrow .opt {
+  flex: 1;
+}
+.optcog {
+  width: 40px;
+  height: 40px;
+  color: var(--muted);
 }

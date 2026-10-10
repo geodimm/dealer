@@ -1,4 +1,5 @@
-import type { Category, Filters, GroupKey, Offer, SortKey, Store } from './types';
+import type { Category, Counts, Filters, GroupKey, Offer, SortKey, Store } from './types';
+import { bestUnit } from './units';
 import { fold, matchesTokens, tokens } from './text';
 
 const keyCache = new WeakMap<Offer, string>();
@@ -56,7 +57,7 @@ export function orderCategories(cats: Category[], order: string[]): Category[] {
 }
 
 /** `rank` maps category id → position; used by the "relevance" sort. */
-export function sortOffers(list: Offer[], key: SortKey, rank: Record<string, number> = {}): Offer[] {
+export function sortOffers(list: Offer[], key: SortKey, rank: Record<string, number> = {}, counts: Counts = {}): Offer[] {
   const out = list.slice();
   switch (key) {
     case 'relevance': {
@@ -67,8 +68,15 @@ export function sortOffers(list: Offer[], key: SortKey, rank: Record<string, num
       return out.sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1) || a.price - b.price);
     case 'price':
       return out.sort((a, b) => a.price - b.price);
-    case 'unit':
-      return out.sort((a, b) => nullsLast(a.unit, b.unit));
+    case 'unit': {
+      // Per piece, then per kg, then per litre; cheapest first within each.
+      const KIND = { pc: 0, kg: 1, l: 2 } as const;
+      const key = (o: Offer) => {
+        const u = bestUnit(o, counts);
+        return u ? KIND[u.kind] * 1e6 + u.value : null;
+      };
+      return out.sort((a, b) => nullsLast(key(a), key(b)));
+    }
     case 'ending':
       return out.sort((a, b) => nullsLast(a.to, b.to) || (b.pct ?? -1) - (a.pct ?? -1));
     case 'newest':

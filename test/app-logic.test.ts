@@ -54,7 +54,7 @@ describe('filterOffers', () => {
 
 describe('sorting, grouping, labels', () => {
   it('puts offers without a unit price last', () => {
-    const s = sortOffers([offer({ unit: null }), offer({ unit: 3 }), offer({ unit: 1 })], 'unit');
+    const s = sortOffers([offer({ unit: null }), offer({ unit: 3, unitOf: 'kg' }), offer({ unit: 1, unitOf: 'kg' })], 'unit');
     expect(s.map((o) => o.unit)).toEqual([1, 3, null]);
   });
   it('groups by validity bucket', () => {
@@ -107,5 +107,26 @@ describe('relevance sort', () => {
       offer({ cat: 'meat', pct: 40 }),
     ];
     expect(sortOffers(list, 'relevance', rank).map((o) => `${o.cat}:${o.pct}`)).toEqual(['meat:40', 'meat:5', 'canned:10', 'produce:60']);
+  });
+});
+
+describe('price per piece', () => {
+  const w = (over: Partial<Watch>): Watch => ({ id: 'w', term: 'кафе капсули', maxPrice: null, minPct: null, maxUnit: 0.25, unitKind: 'pc', exclude: [], createdAt: 0, ...over });
+  const pellini = offer({ id: 'L-1', name: 'Кафе капсули', pack: '30 бр.', price: 6.39, pcs: 30 });
+  const kimbo = offer({ id: 'L-2', name: 'Кафе капсули', pack: '30 бр.', price: 7.99, pcs: 30 });
+  const dg = offer({ id: 'K-20716211', name: 'Кафе капсули Dolce Gusto', pack: '168 - 210 г', price: 8.69 });
+
+  it('compares by price per capsule, whatever the box size', () => {
+    expect(watchMatches(w({}), pellini, TODAY)).toBe(true); // €0.213
+    expect(watchMatches(w({}), kimbo, TODAY)).toBe(false); // €0.266
+  });
+  it('uses a count the user typed in, and skips unknown counts unless asked', () => {
+    expect(watchMatches(w({}), dg, TODAY)).toBe(false);
+    expect(watchMatches(w({ includeUnknown: true }), dg, TODAY)).toBe(true);
+    expect(watchMatches(w({}), dg, TODAY, { counts: { 'K-20716211': 30 } })).toBe(false); // €0.29
+    expect(watchMatches(w({ maxUnit: 0.3 }), dg, TODAY, { counts: { 'K-20716211': 30 } })).toBe(true);
+  });
+  it('ignores stores the user turned off', () => {
+    expect(watchMatches(w({}), pellini, TODAY, { hiddenStores: ['kaufland'] })).toBe(false);
   });
 });

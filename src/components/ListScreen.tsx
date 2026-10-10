@@ -1,6 +1,6 @@
 import type { DataFile, ListItem } from '../lib/types';
+import { StoreBadge } from './StoreBadge';
 import { euro } from '../lib/offers';
-import { storeColor } from './OfferCard';
 import { Icon } from './Icon';
 
 export function ListScreen({
@@ -46,7 +46,7 @@ export function ListScreen({
               return (
                 <section class="panel" key={storeId}>
                   <div class="row">
-                    <span class="dot" style={{ background: storeColor(store) }} />
+                    <StoreBadge store={store} id={storeId} />
                     <strong class="grow">{store?.name ?? storeId}</strong>
                     <span class="muted small">{list.length}</span>
                   </div>

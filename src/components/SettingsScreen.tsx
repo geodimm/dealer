@@ -2,6 +2,7 @@ import type { Category, DataFile } from '../lib/types';
 import type { ThemePref } from '../lib/prefs';
 import type { Background } from '../lib/alerts';
 import { InstallCard } from './InstallCard';
+import { StoreBadge } from './StoreBadge';
 
 const THEMES: [ThemePref, string, [string, string]][] = [
   ['system', 'Системна', ['#f5f6f2', '#0e1012']],
@@ -35,6 +36,8 @@ export function SettingsScreen({
   onInstall,
   categories,
   onEditOrder,
+  hiddenStores,
+  setHiddenStores,
 }: {
   data: DataFile | undefined;
   theme: ThemePref;
@@ -51,6 +54,8 @@ export function SettingsScreen({
   onInstall: () => void;
   categories: Category[];
   onEditOrder: () => void;
+  hiddenStores: string[];
+  setHiddenStores: (ids: string[]) => void;
 }) {
   return (
     <>
@@ -76,6 +81,34 @@ export function SettingsScreen({
             ))}
           </div>
           <p class="hint">„Системна“ следва настройката на телефона.</p>
+        </section>
+
+        <section class="section">
+          <h3>Магазини</h3>
+          <div class="panel" style={{ gap: 0, padding: '4px 14px' }}>
+            {data?.stores.map((st) => {
+              const on = !hiddenStores.includes(st.id);
+              return (
+                <div class="kv" key={st.id}>
+                  <span class="row" style={{ gap: '10px' }}>
+                    <StoreBadge store={st} size={22} />
+                    {st.name}
+                    <span class="muted small">{st.count}</span>
+                  </span>
+                  <label class="switch">
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      aria-label={`Показвай ${st.name}`}
+                      onChange={() => setHiddenStores(on ? [...hiddenStores, st.id] : hiddenStores.filter((x) => x !== st.id))}
+                    />
+                    <span />
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+          <p class="hint">Изключените магазини не се показват никъде и не пращат известия.</p>
         </section>
 
         <section class="section">
