@@ -4,6 +4,16 @@ import { useEffect, useRef } from 'preact/hooks';
 // history.back() from a programmatic close fires popstate asynchronously; if
 // another sheet opened meanwhile it must not treat that event as "back".
 let strayPops = 0;
+// Sheets can replace each other in one render; count locks instead of
+// restoring a saved value, so the page never stays scroll-locked.
+let scrollLocks = 0;
+const lockScroll = () => {
+  if (scrollLocks++ === 0) document.documentElement.classList.add('locked');
+};
+const unlockScroll = () => {
+  scrollLocks = Math.max(0, scrollLocks - 1);
+  if (scrollLocks === 0) document.documentElement.classList.remove('locked');
+};
 
 /** Bottom sheet dialog: closes on scrim tap, Escape and the Android back button. */
 export function Sheet({
@@ -38,13 +48,12 @@ export function Sheet({
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close.current();
     window.addEventListener('popstate', onPop);
     document.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    lockScroll();
     ref.current?.focus();
     return () => {
       window.removeEventListener('popstate', onPop);
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prev;
+      unlockScroll();
       if (!popped && history.state?.sheet) {
         strayPops++;
         history.back();

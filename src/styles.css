@@ -97,6 +97,12 @@ a {
   white-space: nowrap;
 }
 
+/* Lock the page behind open sheets on <html>, not <body>: overflow on body
+   turns it into a scroll container and breaks the sticky header. */
+html.locked {
+  overflow: hidden;
+}
+
 .app {
   max-width: 1200px;
   margin: 0 auto;
@@ -106,6 +112,7 @@ a {
 
 /* ---- header ---------------------------------------------------------- */
 .top {
+  position: -webkit-sticky;
   position: sticky;
   top: 0;
   z-index: 10;
