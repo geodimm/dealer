@@ -3,6 +3,7 @@ import type { GroupKey, SortKey } from '../lib/types';
 import { Icon } from './Icon';
 
 export const SORTS: [SortKey, string][] = [
+  ['relevance', 'Релевантност'],
   ['pct', 'Най-голяма отстъпка'],
   ['price', 'Най-ниска цена'],
   ['unit', 'Цена за кг / л'],
@@ -22,12 +23,14 @@ export function SortMenu({
   group,
   onSort,
   onGroup,
+  onEditOrder,
   onClose,
 }: {
   sort: SortKey;
   group: GroupKey;
   onSort: (s: SortKey) => void;
   onGroup: (g: GroupKey) => void;
+  onEditOrder: () => void;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -54,6 +57,15 @@ export function SortMenu({
             {sort === k ? <Icon name="check" size={18} stroke={2.6} /> : null}
           </button>
         ))}
+        <button
+          class="linkbtn"
+          onClick={() => {
+            onClose();
+            onEditOrder();
+          }}
+        >
+          Подреди категориите за „Релевантност“…
+        </button>
         <hr />
         <div class="label">Групирай по</div>
         <div class="groups">

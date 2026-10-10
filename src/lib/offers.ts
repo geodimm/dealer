@@ -46,9 +46,23 @@ export function filterOffers(all: Offer[], query: string, f: Filters, today: str
 const nullsLast = (a: number | string | null, b: number | string | null) =>
   a === null ? (b === null ? 0 : 1) : b === null ? -1 : a < b ? -1 : a > b ? 1 : 0;
 
-export function sortOffers(list: Offer[], key: SortKey): Offer[] {
+/** Apply the user's category order (unknown/new categories keep their default place at the end). */
+export function orderCategories(cats: Category[], order: string[]): Category[] {
+  const pos = new Map(order.map((id, i) => [id, i]));
+  return cats
+    .map((c, i) => ({ c, k: pos.get(c.id) ?? order.length + i }))
+    .sort((a, b) => a.k - b.k)
+    .map((x) => x.c);
+}
+
+/** `rank` maps category id → position; used by the "relevance" sort. */
+export function sortOffers(list: Offer[], key: SortKey, rank: Record<string, number> = {}): Offer[] {
   const out = list.slice();
   switch (key) {
+    case 'relevance': {
+      const r = (o: Offer) => rank[o.cat] ?? Number.MAX_SAFE_INTEGER;
+      return out.sort((a, b) => r(a) - r(b) || (b.pct ?? -1) - (a.pct ?? -1) || a.price - b.price);
+    }
     case 'pct':
       return out.sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1) || a.price - b.price);
     case 'price':

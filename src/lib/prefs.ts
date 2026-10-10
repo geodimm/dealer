@@ -28,6 +28,8 @@ export const useFilters = () => useStored<Filters>('filters', DEFAULT_FILTERS);
 export const useSort = () => useStored<SortKey>('sort', 'pct');
 export const useGroup = () => useStored<GroupKey>('group', 'none');
 export const useList = () => useStored<ListItem[]>('list', []);
+/** Category ids in the user's preferred order (empty = the default supermarket order). */
+export const useCatOrder = () => useStored<string[]>('catOrder', []);
 
 export function activeFilterCount(f: Filters): number {
   return (

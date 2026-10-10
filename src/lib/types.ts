@@ -42,7 +42,7 @@ export interface DataFile {
 }
 
 export type Validity = 'now' | 'upcoming' | 'all';
-export type SortKey = 'pct' | 'price' | 'unit' | 'ending' | 'newest';
+export type SortKey = 'relevance' | 'pct' | 'price' | 'unit' | 'ending' | 'newest';
 export type GroupKey = 'none' | 'store' | 'cat' | 'validity';
 
 export interface Filters {

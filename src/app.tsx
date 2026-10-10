@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { DataFile, InboxItem, Offer, Watch } from './lib/types';
-import { isoDay } from './lib/offers';
+import { isoDay, orderCategories } from './lib/offers';
 import { idbGet } from './lib/idb';
 import { getCachedData, getInbox, getWatches, refresh, saveInbox, saveWatches, watchMatches } from './lib/watch';
-import { useApplyTheme, useFilters, useGroup, useList, useSort, useStored, useTheme } from './lib/prefs';
+import { useApplyTheme, useCatOrder, useFilters, useGroup, useList, useSort, useStored, useTheme } from './lib/prefs';
 import { backgroundStatus, disableBackground, enableAlerts, permission, showNotification, type Background } from './lib/alerts';
 import { OffersScreen } from './components/OffersScreen';
 import { OfferDetail } from './components/OfferDetail';
 import { CardMenu, HideSheet } from './components/CardMenu';
+import { CategoryOrderSheet } from './components/CategoryOrderSheet';
 import { WatchEditor } from './components/WatchEditor';
 import { WatchScreen } from './components/WatchScreen';
 import { ListScreen } from './components/ListScreen';
@@ -69,12 +70,20 @@ export function App() {
   const [sort, setSort] = useSort();
   const [group, setGroup] = useGroup();
   const [list, setList] = useList();
+  const [catOrder, setCatOrder] = useCatOrder();
+  const [orderOpen, setOrderOpen] = useState<null | 'sort' | 'settings'>(null);
   const [alertsWanted, setAlertsWanted] = useStored('alerts', false);
   const alertsOn = alertsWanted && perm === 'granted';
   useApplyTheme(theme);
   const app = useInstall();
 
   const today = isoDay();
+  const categories = useMemo(() => (data ? orderCategories(data.categories, catOrder) : []), [data, catOrder]);
+  const catCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const o of data?.offers ?? []) c[o.cat] = (c[o.cat] ?? 0) + 1;
+    return c;
+  }, [data]);
 
   const toastTimer = useRef<number>();
   const say = useCallback((msg: string, undo?: () => void) => {
@@ -198,6 +207,8 @@ export function App() {
             onOpen={setDetail}
             onWatch={openWatchFor}
             onMenu={setMenuFor}
+            categories={categories}
+            onEditOrder={() => setOrderOpen('sort')}
           />
         ) : (
           <div class="loading" style={{ paddingTop: '30vh' }}>
@@ -259,6 +270,8 @@ export function App() {
           installed={app.installed}
           canPrompt={app.canPrompt}
           onInstall={installApp}
+          categories={categories}
+          onEditOrder={() => setOrderOpen('settings')}
         />
       ) : null}
 
@@ -282,6 +295,21 @@ export function App() {
           onWatch={() => openWatchFor(detail)}
           onToggleList={() => toggleList(detail)}
           onClose={() => setDetail(null)}
+        />
+      ) : null}
+      {orderOpen && data ? (
+        <CategoryOrderSheet
+          categories={categories}
+          defaults={data.categories}
+          counts={catCounts}
+          onClose={() => setOrderOpen(null)}
+          onSave={(ids) => {
+            setCatOrder(ids);
+            // Opened from the sort menu: the user wants to sort this way.
+            if (orderOpen === 'sort') setSort('relevance');
+            setOrderOpen(null);
+            say('Редът на категориите е запазен');
+          }}
         />
       ) : null}
       {menuFor ? (

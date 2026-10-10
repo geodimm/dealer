@@ -77,16 +77,33 @@ describe('normalizeBgpromo', () => {
 describe('categorize', () => {
   it.each([
     ['Моторно масло 15W40', 'nonfood'],
-    ['Маслиново масло екстра върджин', 'pantry'],
-    ['Слънчогледово масло', 'pantry'],
+    ['Маслиново масло екстра върджин', 'sauces'],
+    ['Слънчогледово масло', 'sauces'],
     ['Ирландско масло', 'dairy'],
     ['Бира', 'alcohol'],
     ['Капсули Dolce Gusto', 'coffee'],
-    ['Кренвирши', 'meat'],
+    ['Кренвирши', 'deli'],
+    ['Свинско месо', 'meat'],
+    ['Риба тон в олио', 'canned'],
+    ['Сьомга филе', 'fish'],
+    ['Лютеница', 'canned'],
+    ['Спагети', 'pantry'],
+    ['Nutella крем за мазане', 'breakfast'],
+    ['Паста за зъби', 'cosmetics'],
     ['Пресни яйца', 'dairy'],
   ])('%s → %s', (name, cat) => expect(categorize({ name })).toBe(cat));
 
   it('handles brands of Lidl non-food lines', () => {
     expect(categorize({ brand: 'LIVARNO', name: 'Кош за отпадъци' })).toBe('nonfood');
   });
+});
+
+describe('categorize: aisle collisions', () => {
+  it.each([
+    ['Саламурено сирене', 'dairy'],
+    ['Аржентински рибай стек', 'meat'],
+    ['Свинско месо в собствен сос', 'meat'],
+    ['Сос Бешамел', 'sauces'],
+    ['Морски дарове в сос', 'fish'],
+  ])('%s → %s', (name, cat) => expect(categorize({ name })).toBe(cat));
 });

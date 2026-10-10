@@ -88,3 +88,24 @@ describe('watchMatches', () => {
     expect(watchMatches(w({}), { ...dg, to: '2026-10-01' }, TODAY)).toBe(false);
   });
 });
+
+describe('relevance sort', () => {
+  it('orders by the user category order, then by discount', async () => {
+    const { orderCategories } = await import('../src/lib/offers');
+    const cats = [
+      { id: 'produce', label: 'Плод' },
+      { id: 'meat', label: 'Месо' },
+      { id: 'canned', label: 'Консерви' },
+    ];
+    const ordered = orderCategories(cats, ['meat', 'canned']);
+    expect(ordered.map((c) => c.id)).toEqual(['meat', 'canned', 'produce']);
+    const rank = Object.fromEntries(ordered.map((c, i) => [c.id, i]));
+    const list = [
+      offer({ cat: 'produce', pct: 60 }),
+      offer({ cat: 'canned', pct: 10 }),
+      offer({ cat: 'meat', pct: 5 }),
+      offer({ cat: 'meat', pct: 40 }),
+    ];
+    expect(sortOffers(list, 'relevance', rank).map((o) => `${o.cat}:${o.pct}`)).toEqual(['meat:40', 'meat:5', 'canned:10', 'produce:60']);
+  });
+});

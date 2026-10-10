@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import type { DataFile, Filters, GroupKey, Offer, SortKey } from '../lib/types';
+import type { Category, DataFile, Filters, GroupKey, Offer, SortKey } from '../lib/types';
 import { filterOffers, groupOffers, sortOffers } from '../lib/offers';
 import { activeFilterCount } from '../lib/prefs';
 import { OfferCard } from './OfferCard';
@@ -31,6 +31,8 @@ export function OffersScreen({
   onOpen,
   onWatch,
   onMenu,
+  categories,
+  onEditOrder,
 }: {
   data: DataFile;
   today: string;
@@ -44,6 +46,9 @@ export function OffersScreen({
   onOpen: (o: Offer) => void;
   onWatch: (o: Offer) => void;
   onMenu: (o: Offer) => void;
+  /** Categories in the user's order. */
+  categories: Category[];
+  onEditOrder: () => void;
 }) {
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -52,10 +57,13 @@ export function OffersScreen({
   const q = useDebounced(query, 150);
 
   const results = useMemo(
-    () => sortOffers(filterOffers(data.offers, q, filters, today), sort),
-    [data, q, filters, sort, today],
+    () => {
+      const rank = Object.fromEntries(categories.map((c, i) => [c.id, i]));
+      return sortOffers(filterOffers(data.offers, q, filters, today), sort, rank);
+    },
+    [data, q, filters, sort, today, categories],
   );
-  const groups = useMemo(() => groupOffers(results, group, data.stores, data.categories, today), [results, group, data, today]);
+  const groups = useMemo(() => groupOffers(results, group, data.stores, categories, today), [results, group, data, today, categories]);
   const catCounts = useMemo(() => {
     const c: Record<string, number> = {};
     for (const o of data.offers) c[o.cat] = (c[o.cat] ?? 0) + 1;
@@ -111,7 +119,7 @@ export function OffersScreen({
               <Icon name="sort" size={18} stroke={2.2} />
             </button>
             {showSort ? (
-              <SortMenu sort={sort} group={group} onSort={setSort} onGroup={setGroup} onClose={() => setShowSort(false)} />
+              <SortMenu sort={sort} group={group} onSort={setSort} onGroup={setGroup} onEditOrder={onEditOrder} onClose={() => setShowSort(false)} />
             ) : null}
           </div>
           <button class="filterbtn" aria-label={`Филтри${nFilters ? `, ${nFilters} активни` : ''}`} onClick={() => setShowFilters(true)}>
@@ -170,7 +178,7 @@ export function OffersScreen({
         <FilterSheet
           initial={filters}
           stores={data.stores}
-          cats={data.categories}
+          cats={categories}
           catCounts={catCounts}
           onApply={(f) => {
             setFilters(f);
