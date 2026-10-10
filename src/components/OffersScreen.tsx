@@ -87,7 +87,7 @@ export function OffersScreen({
             <input
               type="search"
               value={query}
-              placeholder="Търси продукт или марка…"
+              placeholder="Търси…"
               aria-label="Търсене"
               enterKeyHint="search"
               onInput={(e) => setQuery(e.currentTarget.value)}
