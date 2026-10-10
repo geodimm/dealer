@@ -28,6 +28,7 @@ export function SettingsScreen({
   perm,
   background,
   onToggleAlerts,
+  onTestAlert,
   checkedAt,
   refreshing,
   onRefresh,
@@ -44,6 +45,7 @@ export function SettingsScreen({
   perm: string;
   background: Background;
   onToggleAlerts: (on: boolean) => void;
+  onTestAlert: () => void;
   checkedAt: number | null;
   refreshing: boolean;
   onRefresh: () => void;
@@ -125,6 +127,11 @@ export function SettingsScreen({
             <div class="kv">
               <span>Проверка във фонов режим</span>
               <span>{alertsOn ? BG_TEXT[background] : '—'}</span>
+            </div>
+            <div class="kv">
+              <button class="textbtn" onClick={onTestAlert} disabled={perm === 'denied' || perm === 'unsupported'}>
+                Пробно известие
+              </button>
             </div>
             {perm === 'denied' ? (
               <p class="hint" style={{ padding: '10px 0' }}>

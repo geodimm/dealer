@@ -71,6 +71,20 @@ async function markNotified(watches: Watch[], offers: Offer[], notified: Set<str
   return fresh;
 }
 
+/** One line about the cheapest hit: store · price (−pct%) · when · and N more. */
+export function alertBody(hits: Offer[], data: DataFile, today: string) {
+  const best = hits.slice().sort((a, b) => a.price - b.price)[0];
+  const store = data.stores.find((s) => s.id === best.store)?.name ?? best.store;
+  const when = whenLabel(best, today)?.text;
+  const parts = [store, `${euro(best.price)}${best.pct ? ` (−${best.pct}%)` : ''}`, when].filter(Boolean);
+  return parts.join(' · ') + (hits.length > 1 ? ` · и още ${hits.length - 1}` : '');
+}
+
+export const alertFor = (term: string, body: string, watchId: string): [string, NotificationOptions] => [
+  `„${term}“ е в промоция`,
+  { body, tag: `watch-${watchId}`, icon: 'icons/icon-192.png', badge: 'icons/badge-96.png', data: { url: '#/inbox' } },
+];
+
 export type Notify = (title: string, options: NotificationOptions) => Promise<void> | void;
 
 /**
@@ -96,23 +110,15 @@ export async function refresh(dataUrl: string, notify: Notify | null): Promise<D
 
   // Every new match lands in the in-app inbox; a system notification is extra.
   const today = isoDay();
-  const storeName = (id: string) => data!.stores.find((s) => s.id === id)?.name ?? id;
-  const items: InboxItem[] = fresh.map(({ watch, hits }) => {
-    const best = hits.slice().sort((a, b) => a.price - b.price)[0];
-    const when = whenLabel(best, today)?.text;
-    const parts = [storeName(best.store), `${euro(best.price)}${best.pct ? ` (−${best.pct}%)` : ''}`, when].filter(Boolean);
-    const more = hits.length > 1 ? ` · и още ${hits.length - 1}` : '';
-    return { id: `${watch.id}-${Date.now()}`, watchId: watch.id, term: watch.term, body: parts.join(' · ') + more, at: Date.now(), read: false };
-  });
+  const items: InboxItem[] = fresh.map(({ watch, hits }) => ({
+    id: `${watch.id}-${Date.now()}`,
+    watchId: watch.id,
+    term: watch.term,
+    body: alertBody(hits, data!, today),
+    at: Date.now(),
+    read: false,
+  }));
   await saveInbox([...items, ...(await getInbox())]);
-  if (notify)
-    for (const it of items)
-      await notify(`„${it.term}“ е в промоция`, {
-        body: it.body,
-        tag: `watch-${it.watchId}`,
-        icon: 'icons/icon-192.png',
-        badge: 'icons/badge-96.png',
-        data: { url: '#/inbox' },
-      });
+  if (notify) for (const it of items) await notify(...alertFor(it.term, it.body, it.watchId));
   return data;
 }

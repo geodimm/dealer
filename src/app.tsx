@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { Counts, DataFile, InboxItem, ListItem, Offer, Watch } from './lib/types';
 import { euro, isoDay, orderCategories, whenLabel } from './lib/offers';
 import { idbGet } from './lib/idb';
-import { getCachedData, getCounts, getInbox, getWatches, refresh, saveInbox, saveWatches, watchMatches } from './lib/watch';
+import { alertBody, alertFor, getCachedData, getCounts, getInbox, getWatches, refresh, saveInbox, saveWatches, watchMatches } from './lib/watch';
 import { idbSet } from './lib/idb';
 import { useApplyTheme, useCatOrder, useFilters, useGroup, useList, useSort, useStored, useTheme } from './lib/prefs';
 import { backgroundStatus, disableBackground, enableAlerts, permission, showNotification, type Background } from './lib/alerts';
@@ -248,6 +248,30 @@ export function App() {
     } else if (res.permission === 'denied') say('Известията са блокирани от браузъра');
     else if (res.permission === 'unsupported') say('Браузърът не поддържа известия');
   };
+  // A real system notification, built like the background ones: from a followed
+  // product that's on sale now, or else the biggest discount of the day.
+  const testAlert = async () => {
+    let p = perm;
+    if (p !== 'granted') p = (await enableAlerts()).permission;
+    setPerm(p);
+    if (p !== 'granted') return say(p === 'denied' ? 'Известията са блокирани от браузъра' : 'Браузърът не поддържа известия');
+    if (!data || !shown) return;
+    const today = isoDay();
+    const hit = watches
+      .map((w) => ({ w, hits: shown.offers.filter((o) => watchMatches(w, o, today, matchCtx)) }))
+      .find((x) => x.hits.length);
+    const top = shown.offers.slice().sort((a, b) => (b.pct ?? 0) - (a.pct ?? 0))[0];
+    if (!hit && !top) return;
+    const [title, opts] = hit
+      ? alertFor(hit.w.term, alertBody(hit.hits, data, today), hit.w.id)
+      : alertFor(top.name.split(' ').slice(0, 3).join(' '), alertBody([top], data, today), 'test');
+    try {
+      await showNotification(title, { ...opts, tag: 'test' });
+      say('Пратено – виж известията на телефона');
+    } catch {
+      say('Неуспешно изпращане на известие');
+    }
+  };
   const installApp = async () => {
     if (await app.install()) say('Готово – отвори dealer от началния екран');
   };
@@ -411,6 +435,7 @@ export function App() {
           perm={perm}
           background={background}
           onToggleAlerts={toggleAlerts}
+          onTestAlert={testAlert}
           checkedAt={checkedAt}
           refreshing={refreshing}
           onRefresh={() => doRefresh(true)}
