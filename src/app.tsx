@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { DataFile, InboxItem, ListItem, Offer, Watch } from './lib/types';
 import { euro, isoDay, orderCategories, whenLabel } from './lib/offers';
 import { idbGet } from './lib/idb';
-import { getCachedData, getInbox, getWatches, refresh, saveInbox, saveWatches } from './lib/watch';
+import { getCachedData, getInbox, getWatches, refresh, saveInbox, saveWatches, watchMatches } from './lib/watch';
 import { useApplyTheme, useCatOrder, useFilters, useGroup, useList, useSort, useStored, useTheme } from './lib/prefs';
 import { backgroundStatus, disableBackground, enableAlerts, permission, showNotification, type Background } from './lib/alerts';
 import { OffersScreen } from './components/OffersScreen';
@@ -25,7 +25,7 @@ type Route = 'offers' | 'watch' | 'inbox' | 'list' | 'settings';
 const ROUTES: [Route, string, IconName][] = [
   ['offers', 'Оферти', 'tag'],
   ['list', 'Списък', 'cart'],
-  ['inbox', 'Известия', 'bell'],
+  ['inbox', 'Следя', 'eye'],
   ['settings', 'Настройки', 'gear'],
 ];
 const ALL_ROUTES: Route[] = ['offers', 'watch', 'inbox', 'list', 'settings'];
@@ -249,8 +249,13 @@ export function App() {
     }
   };
 
-  const badge = (key: Route) =>
-    key === 'inbox' ? inbox.filter((i) => !i.read).length : key === 'list' ? list.filter((i) => !i.done).length : 0;
+  // Followed products that have at least one offer right now.
+  const watchesOnSale = useMemo(
+    () => (data ? watches.filter((w) => data.offers.some((o) => watchMatches(w, o, today))).length : 0),
+    [data, watches, today],
+  );
+  const unread = inbox.filter((i) => !i.read).length;
+  const badge = (key: Route) => (key === 'inbox' ? watchesOnSale : key === 'list' ? list.filter((i) => !i.done).length : 0);
 
   const openWatchFor = (o: Offer) => {
     setDetail(null);
@@ -297,17 +302,17 @@ export function App() {
         <>
           <header class="top">
             <div class="brandrow">
-              <h1 class="title">Известия</h1>
+              <h1 class="title">Следя</h1>
               <button class="filterbtn" onClick={() => setEditing({ watch: newWatch(), isNew: true })} style={{ height: '40px', padding: '0 14px' }}>
                 <Icon name="plus" size={16} stroke={2.6} /> Следи
               </button>
             </div>
             <div class="seg" role="tablist" aria-label="Известия">
               <a role="tab" class="segtab" href="#/inbox" aria-selected={route === 'inbox'}>
-                Известия{badge('inbox') ? ` (${badge('inbox')})` : ''}
+                Известия{unread ? ` (${unread})` : ''}
               </a>
               <a role="tab" class="segtab" href="#/watch" aria-selected={route === 'watch'}>
-                Следени{watches.length ? ` (${watches.length})` : ''}
+                Следени{watches.length ? ` (${watchesOnSale}/${watches.length})` : ''}
               </a>
             </div>
           </header>

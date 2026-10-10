@@ -151,6 +151,8 @@ h1.title {
   display: flex;
   gap: 8px;
   min-width: 0;
+  /* The sort menu anchors to the whole row, so it never runs off-screen. */
+  position: relative;
 }
 .search {
   flex: 1;
@@ -239,7 +241,6 @@ h1.title {
   background: var(--accent-ink);
 }
 .sortwrap {
-  position: relative;
   flex-shrink: 0;
 }
 
@@ -773,7 +774,8 @@ h1.title {
   right: 0;
   top: 52px;
   z-index: 31;
-  width: 270px;
+  width: 290px;
+  max-width: 100%;
   background: var(--sheet);
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -1394,4 +1396,16 @@ h1.title {
   align-items: center;
   justify-content: center;
   box-shadow: 0 0 0 2px var(--bg);
+}
+
+.iconbtn.share {
+  border: 2px solid var(--accent-ink);
+  color: var(--accent-ink);
+  animation: pop 0.25s ease-out;
+}
+@keyframes pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
 }
