@@ -1,0 +1,55 @@
+import { useEffect, useState } from 'preact/hooks';
+import type { Filters, GroupKey, ListItem, SortKey } from './types';
+
+export type ThemePref = 'system' | 'light' | 'dark';
+
+export const DEFAULT_FILTERS: Filters = { stores: [], cats: [], validity: 'now', minPct: 0, hide: [] };
+
+/** useState that persists to localStorage (best effort — private mode may refuse). */
+export function useStored<T>(key: string, fallback: T) {
+  const [value, setValue] = useState<T>(() => {
+    try {
+      const raw = localStorage.getItem(`dealer:${key}`);
+      return raw == null ? fallback : (JSON.parse(raw) as T);
+    } catch {
+      return fallback;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(`dealer:${key}`, JSON.stringify(value));
+    } catch {}
+  }, [key, value]);
+  return [value, setValue] as const;
+}
+
+export const useTheme = () => useStored<ThemePref>('theme', 'system');
+export const useFilters = () => useStored<Filters>('filters', DEFAULT_FILTERS);
+export const useSort = () => useStored<SortKey>('sort', 'pct');
+export const useGroup = () => useStored<GroupKey>('group', 'none');
+export const useList = () => useStored<ListItem[]>('list', []);
+
+export function activeFilterCount(f: Filters): number {
+  return (
+    (f.stores.length ? 1 : 0) +
+    (f.cats.length ? 1 : 0) +
+    (f.validity !== 'now' ? 1 : 0) +
+    (f.minPct > 0 ? 1 : 0) +
+    (f.hide.length ? 1 : 0)
+  );
+}
+
+/** Apply the theme preference to <html data-theme> and keep it in sync with the OS. */
+export function useApplyTheme(pref: ThemePref) {
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      const theme = pref === 'system' ? (mq.matches ? 'dark' : 'light') : pref;
+      document.documentElement.dataset.theme = theme;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0E1012' : '#F5F6F2');
+    };
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, [pref]);
+}

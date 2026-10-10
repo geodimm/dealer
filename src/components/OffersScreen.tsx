@@ -1,0 +1,211 @@
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import type { DataFile, Filters, GroupKey, Offer, SortKey } from '../lib/types';
+import { filterOffers, groupOffers, sortOffers } from '../lib/offers';
+import { activeFilterCount } from '../lib/prefs';
+import { OfferCard } from './OfferCard';
+import { FilterSheet } from './FilterSheet';
+import { SortMenu, SORTS } from './SortMenu';
+import { Icon } from './Icon';
+
+const PAGE = 48;
+
+function useDebounced<T>(value: T, ms: number) {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
+}
+
+const stamp = (iso: string) => {
+  const d = new Date(iso);
+  const sameDay = d.toDateString() === new Date().toDateString();
+  const hm = d.toLocaleTimeString('bg-BG', { hour: '2-digit', minute: '2-digit' });
+  return sameDay ? `обновено ${hm}` : `обновено ${d.toLocaleDateString('bg-BG', { day: 'numeric', month: 'short' })}`;
+};
+
+export function OffersScreen({
+  data,
+  today,
+  filters,
+  setFilters,
+  sort,
+  setSort,
+  group,
+  setGroup,
+  isWatched,
+  onOpen,
+  onWatch,
+  refreshing,
+  onRefresh,
+}: {
+  data: DataFile;
+  today: string;
+  filters: Filters;
+  setFilters: (f: Filters) => void;
+  sort: SortKey;
+  setSort: (s: SortKey) => void;
+  group: GroupKey;
+  setGroup: (g: GroupKey) => void;
+  isWatched: (o: Offer) => boolean;
+  onOpen: (o: Offer) => void;
+  onWatch: (o: Offer) => void;
+  refreshing: boolean;
+  onRefresh: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [showSort, setShowSort] = useState(false);
+  const [limit, setLimit] = useState(PAGE);
+  const q = useDebounced(query, 150);
+
+  const results = useMemo(
+    () => sortOffers(filterOffers(data.offers, q, filters, today), sort),
+    [data, q, filters, sort, today],
+  );
+  const groups = useMemo(() => groupOffers(results, group, data.stores, data.categories, today), [results, group, data, today]);
+  const catCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const o of data.offers) c[o.cat] = (c[o.cat] ?? 0) + 1;
+    return c;
+  }, [data]);
+
+  // Endless list: render a page at a time, add more when the sentinel scrolls into view.
+  useEffect(() => setLimit(PAGE), [q, filters, sort, group]);
+  const sentinel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => entries[0].isIntersecting && setLimit((l) => l + PAGE), {
+      rootMargin: '1200px 0px',
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [results.length, limit]);
+
+  const summary = [
+    filters.stores.length ? filters.stores.map((id) => data.stores.find((s) => s.id === id)?.name ?? id).join(', ') : '',
+    filters.cats.length ? filters.cats.map((id) => data.categories.find((c) => c.id === id)?.label ?? id).join(', ') : '',
+    filters.validity === 'upcoming' ? 'предстоящи' : filters.validity === 'all' ? 'всички дати' : '',
+    filters.minPct ? `${filters.minPct}%+` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const nFilters = activeFilterCount(filters);
+  const sortLabel = SORTS.find(([k]) => k === sort)?.[1];
+
+  let budget = limit;
+  return (
+    <>
+      <header class="top">
+        <div class="brandrow">
+          <div>
+            <span class="logo">
+              dealer<b>.</b>
+            </span>
+            <span class="stamp">{stamp(data.generatedAt)}</span>
+          </div>
+          <button class="iconbtn" aria-label="Обнови офертите" onClick={onRefresh} disabled={refreshing}>
+            <span style={refreshing ? { animation: 'spin 1s linear infinite', display: 'flex' } : { display: 'flex' }}>
+              <Icon name="refresh" size={18} />
+            </span>
+          </button>
+        </div>
+        <div class="searchrow">
+          <label class="search">
+            <Icon name="search" size={16} />
+            <input
+              type="search"
+              value={query}
+              placeholder="Търси продукт или марка…"
+              aria-label="Търсене"
+              enterKeyHint="search"
+              onInput={(e) => setQuery(e.currentTarget.value)}
+            />
+            {query ? (
+              <button class="iconbtn ghost" aria-label="Изчисти търсенето" onClick={() => setQuery('')}>
+                <Icon name="close" size={16} />
+              </button>
+            ) : null}
+          </label>
+          <button class="filterbtn" aria-label={`Филтри${nFilters ? `, ${nFilters} активни` : ''}`} onClick={() => setShowFilters(true)}>
+            <Icon name="filter" size={18} stroke={2.2} />
+            {nFilters ? <span class="count">{nFilters}</span> : null}
+          </button>
+        </div>
+        <div class="summary">
+          <span>
+            {results.length} {results.length === 1 ? 'оферта' : 'оферти'}
+            {summary ? ` · ${summary}` : ''}
+          </span>
+          <button class="chipbtn" aria-haspopup="menu" aria-expanded={showSort} onClick={() => setShowSort(true)}>
+            <Icon name="sort" size={15} stroke={2.2} />
+            {sortLabel}
+            {group !== 'none' ? ' · груп.' : ''}
+            <Icon name="chevron" size={12} stroke={2.8} />
+          </button>
+          {showSort ? (
+            <SortMenu sort={sort} group={group} onSort={setSort} onGroup={setGroup} onClose={() => setShowSort(false)} />
+          ) : null}
+        </div>
+      </header>
+
+      <main class="content">
+        {results.length === 0 ? (
+          <div class="empty">
+            <strong>Няма оферти</strong>
+            {q || nFilters ? 'Опитай с друга дума или по-малко филтри.' : 'Данните още не са заредени.'}
+          </div>
+        ) : (
+          groups.map((g) => {
+            if (budget <= 0) return null;
+            const items = g.items.slice(0, budget);
+            budget -= items.length;
+            return (
+              <section class="group" key={g.key}>
+                {g.title ? (
+                  <div class="grouphead">
+                    {g.color ? <span class="dot" style={{ background: g.key === 'lidl' ? 'var(--lidl)' : g.color }} /> : null}
+                    <span class="name">{g.title}</span>
+                    <span class="n">{g.items.length}</span>
+                    <span class="rule" />
+                  </div>
+                ) : null}
+                <div class="grid">
+                  {items.map((o) => (
+                    <OfferCard
+                      key={o.id}
+                      offer={o}
+                      store={data.stores.find((s) => s.id === o.store)}
+                      today={today}
+                      watched={isWatched(o)}
+                      onOpen={onOpen}
+                      onWatch={onWatch}
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          })
+        )}
+        {limit < results.length ? <div class="sentinel" ref={sentinel} /> : null}
+      </main>
+
+      {showFilters ? (
+        <FilterSheet
+          initial={filters}
+          stores={data.stores}
+          cats={data.categories}
+          catCounts={catCounts}
+          onApply={(f) => {
+            setFilters(f);
+            setShowFilters(false);
+            window.scrollTo({ top: 0 });
+          }}
+          onClose={() => setShowFilters(false)}
+        />
+      ) : null}
+    </>
+  );
+}

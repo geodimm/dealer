@@ -1,0 +1,298 @@
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import type { DataFile, Offer, Watch } from './lib/types';
+import { isoDay } from './lib/offers';
+import { idbGet } from './lib/idb';
+import { getCachedData, getWatches, refresh, saveWatches, watchMatches } from './lib/watch';
+import { useApplyTheme, useFilters, useGroup, useList, useSort, useStored, useTheme } from './lib/prefs';
+import { backgroundStatus, disableBackground, enableAlerts, permission, showNotification, type Background } from './lib/alerts';
+import { OffersScreen } from './components/OffersScreen';
+import { OfferDetail } from './components/OfferDetail';
+import { WatchEditor } from './components/WatchEditor';
+import { WatchScreen } from './components/WatchScreen';
+import { ListScreen } from './components/ListScreen';
+import { SettingsScreen } from './components/SettingsScreen';
+import { Icon, type IconName } from './components/Icon';
+
+type Route = 'offers' | 'watch' | 'list' | 'settings';
+const ROUTES: [Route, string, IconName][] = [
+  ['offers', 'Оферти', 'tag'],
+  ['watch', 'Следя', 'heart'],
+  ['list', 'Списък', 'list'],
+  ['settings', 'Настройки', 'gear'],
+];
+const routeFromHash = (): Route => {
+  const r = location.hash.replace(/^#\/?/, '') as Route;
+  return ROUTES.some(([k]) => k === r) ? r : 'offers';
+};
+
+const DATA_URL = new URL('data/offers.json', document.baseURI).href;
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+}
+
+const newWatch = (term = ''): Watch => ({
+  id: Math.random().toString(36).slice(2, 10),
+  term,
+  maxPrice: null,
+  minPct: null,
+  maxUnit: null,
+  exclude: [],
+  createdAt: Date.now(),
+});
+
+/** A sensible starting search term from an offer's name. */
+const termFrom = (o: Offer) =>
+  o.name
+    .replace(/\s*(различни|избрани)\s+(видове|вкусове|цветове|модели)\.?$/i, '')
+    .replace(/\s*\d+([.,]\d+)?\s*(г|кг|мл|л|g|kg|ml|l)\b.*$/i, '')
+    .trim();
+
+export function App() {
+  const [route, setRoute] = useState<Route>(routeFromHash);
+  const [data, setData] = useState<DataFile | undefined>();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [checkedAt, setCheckedAt] = useState<number | null>(null);
+  const [watches, setWatches] = useState<Watch[]>([]);
+  const [detail, setDetail] = useState<Offer | null>(null);
+  const [editing, setEditing] = useState<{ watch: Watch; isNew: boolean } | null>(null);
+  const [toast, setToast] = useState('');
+  const [installEvt, setInstallEvt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [perm, setPerm] = useState(permission());
+  const [background, setBackground] = useState<Background>('unsupported');
+
+  const [theme, setTheme] = useTheme();
+  const [filters, setFilters] = useFilters();
+  const [sort, setSort] = useSort();
+  const [group, setGroup] = useGroup();
+  const [list, setList] = useList();
+  const [alertsWanted, setAlertsWanted] = useStored('alerts', false);
+  const alertsOn = alertsWanted && perm === 'granted';
+  useApplyTheme(theme);
+
+  const today = isoDay();
+
+  const say = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2600);
+  }, []);
+
+  const doRefresh = useCallback(
+    async (manual = false) => {
+      setRefreshing(true);
+      const before = (await getCachedData())?.generatedAt;
+      const fresh = await refresh(DATA_URL, alertsOn ? showNotification : null);
+      if (fresh) setData(fresh);
+      setCheckedAt((await idbGet<number>('checkedAt')) ?? null);
+      setRefreshing(false);
+      setLoading(false);
+      if (manual) say(!fresh ? 'Няма връзка – показвам запазените оферти' : fresh.generatedAt !== before ? 'Офертите са обновени' : 'Няма нови оферти');
+    },
+    [alertsOn, say],
+  );
+
+  // Show what's stored on the device straight away, then fetch fresh data.
+  useEffect(() => {
+    (async () => {
+      const cached = await getCachedData();
+      if (cached) {
+        setData(cached);
+        setLoading(false);
+      }
+      setWatches(await getWatches());
+      setCheckedAt((await idbGet<number>('checkedAt')) ?? null);
+      setBackground(await backgroundStatus());
+    })();
+  }, []);
+  const lastCheck = useRef(0);
+  const refreshRef = useRef(doRefresh);
+  refreshRef.current = doRefresh;
+  useEffect(() => {
+    lastCheck.current = Date.now();
+    refreshRef.current();
+    // Re-check when the app comes back to the foreground after a while.
+    const onVis = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastCheck.current > 30 * 60 * 1000) {
+        lastCheck.current = Date.now();
+        refreshRef.current();
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
+
+  useEffect(() => {
+    const onHash = () => setRoute(routeFromHash());
+    const onInstall = (e: Event) => {
+      e.preventDefault();
+      setInstallEvt(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener('hashchange', onHash);
+    window.addEventListener('beforeinstallprompt', onInstall);
+    return () => {
+      window.removeEventListener('hashchange', onHash);
+      window.removeEventListener('beforeinstallprompt', onInstall);
+    };
+  }, []);
+  useEffect(() => window.scrollTo({ top: 0 }), [route]);
+
+  const updateWatches = async (next: Watch[]) => {
+    setWatches(next);
+    await saveWatches(next);
+  };
+
+  const turnOnAlerts = async () => {
+    const res = await enableAlerts();
+    setPerm(res.permission);
+    setBackground(res.background);
+    if (res.permission === 'granted') {
+      setAlertsWanted(true);
+      say(res.background === 'on' ? 'Известията са включени, вкл. във фонов режим' : 'Известията са включени');
+    } else if (res.permission === 'denied') say('Известията са блокирани от браузъра');
+    else if (res.permission === 'unsupported') say('Браузърът не поддържа известия');
+  };
+  const toggleAlerts = async (on: boolean) => {
+    if (on) return turnOnAlerts();
+    setAlertsWanted(false);
+    await disableBackground();
+    setBackground(await backgroundStatus());
+  };
+
+  const isWatched = useCallback((o: Offer) => watches.some((w) => watchMatches(w, o, today)), [watches, today]);
+
+  const storeOf = (o: Offer) => data?.stores.find((s) => s.id === o.store);
+  const inList = (o: Offer) => list.some((i) => i.id === o.id);
+  const toggleList = (o: Offer) => {
+    if (inList(o)) setList((prev) => prev.filter((i) => i.id !== o.id));
+    else {
+      setList((prev) => [...prev, { id: o.id, store: o.store, name: o.brand ? `${o.brand} ${o.name}` : o.name, pack: o.pack, price: o.price, to: o.to, done: false }]);
+      say('Добавено в списъка');
+    }
+  };
+
+  const openWatchFor = (o: Offer) => {
+    setDetail(null);
+    setEditing({ watch: newWatch(termFrom(o)), isNew: true });
+  };
+
+  return (
+    <div class="app">
+      {route === 'offers' ? (
+        data ? (
+          <OffersScreen
+            data={data}
+            today={today}
+            filters={filters}
+            setFilters={setFilters}
+            sort={sort}
+            setSort={setSort}
+            group={group}
+            setGroup={setGroup}
+            isWatched={isWatched}
+            onOpen={setDetail}
+            onWatch={openWatchFor}
+            refreshing={refreshing}
+            onRefresh={() => doRefresh(true)}
+          />
+        ) : (
+          <div class="loading" style={{ paddingTop: '30vh' }}>
+            {loading ? 'Зареждам офертите…' : 'Не успях да заредя офертите. Провери връзката и опитай пак.'}
+            {!loading ? (
+              <p>
+                <button class="secondary" onClick={() => doRefresh(true)}>
+                  Опитай пак
+                </button>
+              </p>
+            ) : null}
+          </div>
+        )
+      ) : null}
+      {route === 'watch' ? (
+        <WatchScreen
+          data={data}
+          watches={watches}
+          today={today}
+          alertsOn={alertsOn}
+          onEnableAlerts={turnOnAlerts}
+          onNew={() => setEditing({ watch: newWatch(), isNew: true })}
+          onEdit={(w) => setEditing({ watch: w, isNew: false })}
+          onOpen={setDetail}
+        />
+      ) : null}
+      {route === 'list' ? <ListScreen data={data} items={list} setItems={setList} /> : null}
+      {route === 'settings' ? (
+        <SettingsScreen
+          data={data}
+          theme={theme}
+          setTheme={setTheme}
+          alertsOn={alertsOn}
+          perm={perm}
+          background={background}
+          onToggleAlerts={toggleAlerts}
+          checkedAt={checkedAt}
+          refreshing={refreshing}
+          onRefresh={() => doRefresh(true)}
+          canInstall={!!installEvt}
+          onInstall={async () => {
+            await installEvt?.prompt();
+            setInstallEvt(null);
+          }}
+        />
+      ) : null}
+
+      <nav class="nav" aria-label="Основна навигация">
+        {ROUTES.map(([key, label, icon]) => (
+          <a href={`#/${key}`} aria-current={route === key ? 'page' : undefined}>
+            <Icon name={icon} size={22} />
+            {label}
+            {key === 'list' && list.filter((i) => !i.done).length ? <span class="pip">{list.filter((i) => !i.done).length}</span> : null}
+          </a>
+        ))}
+      </nav>
+
+      {detail && data ? (
+        <OfferDetail
+          offer={detail}
+          store={storeOf(detail)}
+          category={data.categories.find((c) => c.id === detail.cat)}
+          today={today}
+          inList={inList(detail)}
+          onWatch={() => openWatchFor(detail)}
+          onToggleList={() => toggleList(detail)}
+          onClose={() => setDetail(null)}
+        />
+      ) : null}
+      {editing ? (
+        <WatchEditor
+          initial={editing.watch}
+          offers={data?.offers ?? []}
+          today={today}
+          onClose={() => setEditing(null)}
+          onDelete={
+            editing.isNew
+              ? undefined
+              : async () => {
+                  await updateWatches(watches.filter((w) => w.id !== editing.watch.id));
+                  setEditing(null);
+                }
+          }
+          onSave={async (w) => {
+            const next = editing.isNew ? [w, ...watches] : watches.map((x) => (x.id === w.id ? w : x));
+            await updateWatches(next);
+            setEditing(null);
+            if (editing.isNew) {
+              say(`Следиш „${w.term}“`);
+              if (!alertsOn && perm !== 'denied') location.hash = '#/watch';
+            }
+          }}
+        />
+      ) : null}
+      {toast ? (
+        <div class="toast" role="status">
+          {toast}
+        </div>
+      ) : null}
+    </div>
+  );
+}
