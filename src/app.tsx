@@ -13,6 +13,7 @@ import { ListScreen } from './components/ListScreen';
 import { InboxScreen } from './components/InboxScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { Icon, type IconName } from './components/Icon';
+import { useInstall } from './lib/install';
 
 type Route = 'offers' | 'watch' | 'inbox' | 'list' | 'settings';
 const ROUTES: [Route, string, IconName][] = [
@@ -28,10 +29,6 @@ const routeFromHash = (): Route => {
 };
 
 const DATA_URL = new URL('data/offers.json', document.baseURI).href;
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-}
 
 const newWatch = (term = ''): Watch => ({
   id: Math.random().toString(36).slice(2, 10),
@@ -61,7 +58,6 @@ export function App() {
   const [detail, setDetail] = useState<Offer | null>(null);
   const [editing, setEditing] = useState<{ watch: Watch; isNew: boolean } | null>(null);
   const [toast, setToast] = useState('');
-  const [installEvt, setInstallEvt] = useState<BeforeInstallPromptEvent | null>(null);
   const [perm, setPerm] = useState(permission());
   const [background, setBackground] = useState<Background>('unsupported');
 
@@ -73,6 +69,7 @@ export function App() {
   const [alertsWanted, setAlertsWanted] = useStored('alerts', false);
   const alertsOn = alertsWanted && perm === 'granted';
   useApplyTheme(theme);
+  const app = useInstall();
 
   const today = isoDay();
 
@@ -129,16 +126,8 @@ export function App() {
 
   useEffect(() => {
     const onHash = () => setRoute(routeFromHash());
-    const onInstall = (e: Event) => {
-      e.preventDefault();
-      setInstallEvt(e as BeforeInstallPromptEvent);
-    };
     window.addEventListener('hashchange', onHash);
-    window.addEventListener('beforeinstallprompt', onInstall);
-    return () => {
-      window.removeEventListener('hashchange', onHash);
-      window.removeEventListener('beforeinstallprompt', onInstall);
-    };
+    return () => window.removeEventListener('hashchange', onHash);
   }, []);
   useEffect(() => window.scrollTo({ top: 0 }), [route]);
 
@@ -156,6 +145,9 @@ export function App() {
       say(res.background === 'on' ? 'Известията са включени, вкл. във фонов режим' : 'Известията са включени');
     } else if (res.permission === 'denied') say('Известията са блокирани от браузъра');
     else if (res.permission === 'unsupported') say('Браузърът не поддържа известия');
+  };
+  const installApp = async () => {
+    if (await app.install()) say('Готово – отвори dealer от началния екран');
   };
   const toggleAlerts = async (on: boolean) => {
     if (on) return turnOnAlerts();
@@ -221,6 +213,9 @@ export function App() {
           today={today}
           alertsOn={alertsOn}
           onEnableAlerts={turnOnAlerts}
+          installed={app.installed}
+          canPrompt={app.canPrompt}
+          onInstall={installApp}
           onNew={() => setEditing({ watch: newWatch(), isNew: true })}
           onEdit={(w) => setEditing({ watch: w, isNew: false })}
           onOpen={setDetail}
@@ -255,11 +250,9 @@ export function App() {
           checkedAt={checkedAt}
           refreshing={refreshing}
           onRefresh={() => doRefresh(true)}
-          canInstall={!!installEvt}
-          onInstall={async () => {
-            await installEvt?.prompt();
-            setInstallEvt(null);
-          }}
+          installed={app.installed}
+          canPrompt={app.canPrompt}
+          onInstall={installApp}
         />
       ) : null}
 

@@ -1,6 +1,7 @@
 import type { DataFile } from '../lib/types';
 import type { ThemePref } from '../lib/prefs';
 import type { Background } from '../lib/alerts';
+import { InstallCard } from './InstallCard';
 
 const THEMES: [ThemePref, string, [string, string]][] = [
   ['system', 'Системна', ['#f5f6f2', '#0e1012']],
@@ -29,7 +30,8 @@ export function SettingsScreen({
   checkedAt,
   refreshing,
   onRefresh,
-  canInstall,
+  installed,
+  canPrompt,
   onInstall,
 }: {
   data: DataFile | undefined;
@@ -42,7 +44,8 @@ export function SettingsScreen({
   checkedAt: number | null;
   refreshing: boolean;
   onRefresh: () => void;
-  canInstall: boolean;
+  installed: boolean;
+  canPrompt: boolean;
   onInstall: () => void;
 }) {
   return (
@@ -53,18 +56,7 @@ export function SettingsScreen({
         </div>
       </header>
       <main class="content stack" style={{ gap: '22px' }}>
-        {canInstall ? (
-          <section class="panel row">
-            <span class="grow">
-              <strong>Инсталирай приложението</strong>
-              <br />
-              <span class="hint">Работи офлайн и може да проверява за оферти във фонов режим.</span>
-            </span>
-            <button class="filterbtn" style={{ height: '40px', padding: '0 14px' }} onClick={onInstall}>
-              Инсталирай
-            </button>
-          </section>
-        ) : null}
+        {!installed ? <InstallCard canPrompt={canPrompt} onInstall={onInstall} /> : null}
 
         <section class="section">
           <h3>Тема</h3>

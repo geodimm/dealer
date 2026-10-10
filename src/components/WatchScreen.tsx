@@ -4,6 +4,7 @@ import { watchMatches } from '../lib/watch';
 import { euro, whenLabel } from '../lib/offers';
 import { storeColor } from './OfferCard';
 import { Icon } from './Icon';
+import { InstallCard } from './InstallCard';
 
 const SHOW = 4;
 
@@ -23,6 +24,9 @@ export function WatchScreen({
   today,
   alertsOn,
   onEnableAlerts,
+  installed,
+  canPrompt,
+  onInstall,
   onNew,
   onEdit,
   onOpen,
@@ -32,6 +36,9 @@ export function WatchScreen({
   today: string;
   alertsOn: boolean;
   onEnableAlerts: () => void;
+  installed: boolean;
+  canPrompt: boolean;
+  onInstall: () => void;
   onNew: () => void;
   onEdit: (w: Watch) => void;
   onOpen: (o: Offer) => void;
@@ -53,7 +60,11 @@ export function WatchScreen({
           </button>
         </div>
       </header>
-      {!alertsOn ? (
+      {!installed ? (
+        <div style={{ padding: '0 16px 10px' }}>
+          <InstallCard canPrompt={canPrompt} onInstall={onInstall} />
+        </div>
+      ) : !alertsOn ? (
         <div class="banner">
           <Icon name="bell" />
           <span class="grow">Включи известията, за да разбираш за нови оферти, без да отваряш приложението.</span>
