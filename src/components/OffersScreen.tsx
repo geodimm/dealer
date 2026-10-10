@@ -18,13 +18,6 @@ function useDebounced<T>(value: T, ms: number) {
   return v;
 }
 
-const stamp = (iso: string) => {
-  const d = new Date(iso);
-  const sameDay = d.toDateString() === new Date().toDateString();
-  const hm = d.toLocaleTimeString('bg-BG', { hour: '2-digit', minute: '2-digit' });
-  return sameDay ? `обновено ${hm}` : `обновено ${d.toLocaleDateString('bg-BG', { day: 'numeric', month: 'short' })}`;
-};
-
 export function OffersScreen({
   data,
   today,
@@ -37,8 +30,6 @@ export function OffersScreen({
   isWatched,
   onOpen,
   onWatch,
-  refreshing,
-  onRefresh,
 }: {
   data: DataFile;
   today: string;
@@ -51,8 +42,6 @@ export function OffersScreen({
   isWatched: (o: Offer) => boolean;
   onOpen: (o: Offer) => void;
   onWatch: (o: Offer) => void;
-  refreshing: boolean;
-  onRefresh: () => void;
 }) {
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -84,34 +73,14 @@ export function OffersScreen({
     return () => io.disconnect();
   }, [results.length, limit]);
 
-  const summary = [
-    filters.stores.length ? filters.stores.map((id) => data.stores.find((s) => s.id === id)?.name ?? id).join(', ') : '',
-    filters.cats.length ? filters.cats.map((id) => data.categories.find((c) => c.id === id)?.label ?? id).join(', ') : '',
-    filters.validity === 'upcoming' ? 'предстоящи' : filters.validity === 'all' ? 'всички дати' : '',
-    filters.minPct ? `${filters.minPct}%+` : '',
-  ]
-    .filter(Boolean)
-    .join(' · ');
   const nFilters = activeFilterCount(filters);
   const sortLabel = SORTS.find(([k]) => k === sort)?.[1];
+  const sortChanged = sort !== 'pct' || group !== 'none';
 
   let budget = limit;
   return (
     <>
       <header class="top">
-        <div class="brandrow">
-          <div>
-            <span class="logo">
-              dealer<b>.</b>
-            </span>
-            <span class="stamp">{stamp(data.generatedAt)}</span>
-          </div>
-          <button class="iconbtn" aria-label="Обнови офертите" onClick={onRefresh} disabled={refreshing}>
-            <span style={refreshing ? { animation: 'spin 1s linear infinite', display: 'flex' } : { display: 'flex' }}>
-              <Icon name="refresh" size={18} />
-            </span>
-          </button>
-        </div>
         <div class="searchrow">
           <label class="search">
             <Icon name="search" size={16} />
@@ -129,26 +98,28 @@ export function OffersScreen({
               </button>
             ) : null}
           </label>
+          <div class="sortwrap">
+            <button
+              class={`iconbtn round${sortChanged ? ' changed' : ''}`}
+              aria-label={`Подреди: ${sortLabel}${group !== 'none' ? ', с групиране' : ''}`}
+              aria-haspopup="menu"
+              aria-expanded={showSort}
+              onClick={() => setShowSort(true)}
+            >
+              <Icon name="sort" size={18} stroke={2.2} />
+            </button>
+            {showSort ? (
+              <SortMenu sort={sort} group={group} onSort={setSort} onGroup={setGroup} onClose={() => setShowSort(false)} />
+            ) : null}
+          </div>
           <button class="filterbtn" aria-label={`Филтри${nFilters ? `, ${nFilters} активни` : ''}`} onClick={() => setShowFilters(true)}>
             <Icon name="filter" size={18} stroke={2.2} />
             {nFilters ? <span class="count">{nFilters}</span> : null}
           </button>
         </div>
-        <div class="summary">
-          <span>
-            {results.length} {results.length === 1 ? 'оферта' : 'оферти'}
-            {summary ? ` · ${summary}` : ''}
-          </span>
-          <button class="chipbtn" aria-haspopup="menu" aria-expanded={showSort} onClick={() => setShowSort(true)}>
-            <Icon name="sort" size={15} stroke={2.2} />
-            {sortLabel}
-            {group !== 'none' ? ' · груп.' : ''}
-            <Icon name="chevron" size={12} stroke={2.8} />
-          </button>
-          {showSort ? (
-            <SortMenu sort={sort} group={group} onSort={setSort} onGroup={setGroup} onClose={() => setShowSort(false)} />
-          ) : null}
-        </div>
+        <p class="sr-only" aria-live="polite">
+          {results.length} {results.length === 1 ? 'оферта' : 'оферти'}
+        </p>
       </header>
 
       <main class="content">

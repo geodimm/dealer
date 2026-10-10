@@ -2,7 +2,7 @@
 // page (on open / pull to refresh) and the service worker (periodic
 // background sync), so everything here sticks to fetch + IndexedDB.
 
-import type { DataFile, Offer, Watch } from './types';
+import type { DataFile, InboxItem, Offer, Watch } from './types';
 import { idbGet, idbSet } from './idb';
 import { euro, isExpired, isoDay, searchKey, whenLabel } from './offers';
 import { fold, matchesTokens, tokens } from './text';
@@ -22,6 +22,8 @@ export function watchMatches(w: Watch, o: Offer, today: string): boolean {
 }
 
 export const getWatches = async () => (await idbGet<Watch[]>('watches')) ?? [];
+export const getInbox = async () => (await idbGet<InboxItem[]>('inbox')) ?? [];
+export const saveInbox = (items: InboxItem[]) => idbSet('inbox', items.slice(0, 100));
 export const getCachedData = () => idbGet<DataFile>('data');
 
 /** Save watches; offers already matching a new watch count as "seen" so we don't ping about them. */
@@ -67,22 +69,27 @@ export async function refresh(dataUrl: string, notify: Notify | null): Promise<D
   const watches = await getWatches();
   const notified = new Set((await idbGet<string[]>('notified')) ?? []);
   const fresh = await markNotified(watches, data.offers, notified);
-  if (notify) {
-    const today = isoDay();
-    const storeName = (id: string) => data!.stores.find((s) => s.id === id)?.name ?? id;
-    for (const { watch, hits } of fresh) {
-      const best = hits.slice().sort((a, b) => a.price - b.price)[0];
-      const when = whenLabel(best, today)?.text;
-      const parts = [storeName(best.store), `${euro(best.price)}${best.pct ? ` (−${best.pct}%)` : ''}`, when].filter(Boolean);
-      const more = hits.length > 1 ? ` · и още ${hits.length - 1}` : '';
-      await notify(`„${watch.term}“ е в промоция`, {
-        body: parts.join(' · ') + more,
-        tag: `watch-${watch.id}`,
+  if (!fresh.length) return data;
+
+  // Every new match lands in the in-app inbox; a system notification is extra.
+  const today = isoDay();
+  const storeName = (id: string) => data!.stores.find((s) => s.id === id)?.name ?? id;
+  const items: InboxItem[] = fresh.map(({ watch, hits }) => {
+    const best = hits.slice().sort((a, b) => a.price - b.price)[0];
+    const when = whenLabel(best, today)?.text;
+    const parts = [storeName(best.store), `${euro(best.price)}${best.pct ? ` (−${best.pct}%)` : ''}`, when].filter(Boolean);
+    const more = hits.length > 1 ? ` · и още ${hits.length - 1}` : '';
+    return { id: `${watch.id}-${Date.now()}`, watchId: watch.id, term: watch.term, body: parts.join(' · ') + more, at: Date.now(), read: false };
+  });
+  await saveInbox([...items, ...(await getInbox())]);
+  if (notify)
+    for (const it of items)
+      await notify(`„${it.term}“ е в промоция`, {
+        body: it.body,
+        tag: `watch-${it.watchId}`,
         icon: 'icons/icon-192.png',
         badge: 'icons/badge-96.png',
-        data: { url: '#/watch' },
+        data: { url: '#/inbox' },
       });
-    }
-  }
   return data;
 }

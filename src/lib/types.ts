@@ -72,3 +72,12 @@ export interface ListItem {
   to: string | null;
   done: boolean;
 }
+
+export interface InboxItem {
+  id: string;
+  watchId: string;
+  term: string;
+  body: string;
+  at: number;
+  read: boolean;
+}

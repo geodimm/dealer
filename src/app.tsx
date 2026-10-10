@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import type { DataFile, Offer, Watch } from './lib/types';
+import type { DataFile, InboxItem, Offer, Watch } from './lib/types';
 import { isoDay } from './lib/offers';
 import { idbGet } from './lib/idb';
-import { getCachedData, getWatches, refresh, saveWatches, watchMatches } from './lib/watch';
+import { getCachedData, getInbox, getWatches, refresh, saveInbox, saveWatches, watchMatches } from './lib/watch';
 import { useApplyTheme, useFilters, useGroup, useList, useSort, useStored, useTheme } from './lib/prefs';
 import { backgroundStatus, disableBackground, enableAlerts, permission, showNotification, type Background } from './lib/alerts';
 import { OffersScreen } from './components/OffersScreen';
@@ -10,13 +10,15 @@ import { OfferDetail } from './components/OfferDetail';
 import { WatchEditor } from './components/WatchEditor';
 import { WatchScreen } from './components/WatchScreen';
 import { ListScreen } from './components/ListScreen';
+import { InboxScreen } from './components/InboxScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { Icon, type IconName } from './components/Icon';
 
-type Route = 'offers' | 'watch' | 'list' | 'settings';
+type Route = 'offers' | 'watch' | 'inbox' | 'list' | 'settings';
 const ROUTES: [Route, string, IconName][] = [
   ['offers', 'Оферти', 'tag'],
   ['watch', 'Следя', 'heart'],
+  ['inbox', 'Известия', 'bell'],
   ['list', 'Списък', 'list'],
   ['settings', 'Настройки', 'gear'],
 ];
@@ -55,6 +57,7 @@ export function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [checkedAt, setCheckedAt] = useState<number | null>(null);
   const [watches, setWatches] = useState<Watch[]>([]);
+  const [inbox, setInbox] = useState<InboxItem[]>([]);
   const [detail, setDetail] = useState<Offer | null>(null);
   const [editing, setEditing] = useState<{ watch: Watch; isNew: boolean } | null>(null);
   const [toast, setToast] = useState('');
@@ -84,6 +87,7 @@ export function App() {
       const before = (await getCachedData())?.generatedAt;
       const fresh = await refresh(DATA_URL, alertsOn ? showNotification : null);
       if (fresh) setData(fresh);
+      setInbox(await getInbox());
       setCheckedAt((await idbGet<number>('checkedAt')) ?? null);
       setRefreshing(false);
       setLoading(false);
@@ -101,6 +105,7 @@ export function App() {
         setLoading(false);
       }
       setWatches(await getWatches());
+      setInbox(await getInbox());
       setCheckedAt((await idbGet<number>('checkedAt')) ?? null);
       setBackground(await backgroundStatus());
     })();
@@ -171,6 +176,9 @@ export function App() {
     }
   };
 
+  const badge = (key: Route) =>
+    key === 'inbox' ? inbox.filter((i) => !i.read).length : key === 'list' ? list.filter((i) => !i.done).length : 0;
+
   const openWatchFor = (o: Offer) => {
     setDetail(null);
     setEditing({ watch: newWatch(termFrom(o)), isNew: true });
@@ -192,8 +200,6 @@ export function App() {
             isWatched={isWatched}
             onOpen={setDetail}
             onWatch={openWatchFor}
-            refreshing={refreshing}
-            onRefresh={() => doRefresh(true)}
           />
         ) : (
           <div class="loading" style={{ paddingTop: '30vh' }}>
@@ -218,6 +224,22 @@ export function App() {
           onNew={() => setEditing({ watch: newWatch(), isNew: true })}
           onEdit={(w) => setEditing({ watch: w, isNew: false })}
           onOpen={setDetail}
+        />
+      ) : null}
+      {route === 'inbox' ? (
+        <InboxScreen
+          items={inbox}
+          onOpen={async (it) => {
+            const next = inbox.map((x) => (x.id === it.id ? { ...x, read: true } : x));
+            setInbox(next);
+            await saveInbox(next);
+            location.hash = '#/watch';
+          }}
+          onMarkAllRead={async () => {
+            const next = inbox.map((x) => ({ ...x, read: true }));
+            setInbox(next);
+            await saveInbox(next);
+          }}
         />
       ) : null}
       {route === 'list' ? <ListScreen data={data} items={list} setItems={setList} /> : null}
@@ -246,7 +268,7 @@ export function App() {
           <a href={`#/${key}`} aria-current={route === key ? 'page' : undefined}>
             <Icon name={icon} size={22} />
             {label}
-            {key === 'list' && list.filter((i) => !i.done).length ? <span class="pip">{list.filter((i) => !i.done).length}</span> : null}
+            {badge(key) ? <span class="pip">{badge(key)}</span> : null}
           </a>
         ))}
       </nav>
