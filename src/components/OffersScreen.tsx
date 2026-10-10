@@ -27,9 +27,9 @@ export function OffersScreen({
   setSort,
   group,
   setGroup,
-  isWatched,
+  isInList,
   onOpen,
-  onWatch,
+  onCart,
   onMenu,
   categories,
   onEditOrder,
@@ -45,9 +45,9 @@ export function OffersScreen({
   setSort: (s: SortKey) => void;
   group: GroupKey;
   setGroup: (g: GroupKey) => void;
-  isWatched: (o: Offer) => boolean;
+  isInList: (o: Offer) => boolean;
   onOpen: (o: Offer) => void;
-  onWatch: (o: Offer) => void;
+  onCart: (o: Offer) => void;
   onMenu: (o: Offer) => void;
   /** Categories in the user's order. */
   categories: Category[];
@@ -165,9 +165,9 @@ export function OffersScreen({
                       offer={o}
                       store={data.stores.find((s) => s.id === o.store)}
                       today={today}
-                      watched={isWatched(o)}
+                      inList={isInList(o)}
                       onOpen={onOpen}
-                      onWatch={onWatch}
+                      onCart={onCart}
                       onMenu={onMenu}
                     />
                   ))}

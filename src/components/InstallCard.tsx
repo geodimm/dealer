@@ -11,7 +11,7 @@ export function InstallCard({ canPrompt, onInstall }: { canPrompt: boolean; onIn
           <Icon name="bell" size={20} />
         </span>
         <div class="grow stack" style={{ gap: '4px' }}>
-          <strong>Инсталирай приложението, за да работи „Следя“</strong>
+          <strong>Инсталирай приложението, за да получаваш известия</strong>
           <span class="hint" style={{ fontSize: '13px' }}>
             {p === 'ios'
               ? 'Известия за следените продукти идват само в приложението на началния екран. На iPhone то проверява за нови оферти, когато го отвориш.'

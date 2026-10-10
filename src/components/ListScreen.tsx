@@ -8,11 +8,13 @@ export function ListScreen({
   items,
   setItems,
   onShare,
+  onRemove,
 }: {
   data: DataFile | undefined;
   items: ListItem[];
   setItems: (fn: (prev: ListItem[]) => ListItem[]) => void;
   onShare: () => void;
+  onRemove: (it: ListItem) => void;
 }) {
   const stores = data?.stores ?? [];
   const byStore = new Map<string, ListItem[]>();
@@ -35,7 +37,7 @@ export function ListScreen({
         {items.length === 0 ? (
           <div class="empty">
             <strong>Списъкът е празен</strong>
-            Отвори оферта и натисни „Към списъка“.
+            Натисни количката на някоя оферта, за да я добавиш тук.
           </div>
         ) : (
           <>
@@ -50,18 +52,23 @@ export function ListScreen({
                   </div>
                   <div>
                     {list.map((it) => (
-                      <label class={`listrow${it.done ? ' done' : ''}`} key={it.id}>
-                        <input
-                          type="checkbox"
-                          checked={it.done}
-                          onChange={() => setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, done: !x.done } : x)))}
-                        />
-                        <span class="grow">
-                          <span class="lname">{it.name}</span>
-                          {it.pack ? <span class="muted small"> · {it.pack}</span> : null}
-                        </span>
-                        <strong>{euro(it.price)}</strong>
-                      </label>
+                      <div class={`listrow${it.done ? ' done' : ''}`} key={it.id}>
+                        <label class="row grow" style={{ gap: '12px', minHeight: '44px' }}>
+                          <input
+                            type="checkbox"
+                            checked={it.done}
+                            onChange={() => setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, done: !x.done } : x)))}
+                          />
+                          <span class="grow">
+                            <span class="lname">{it.name}</span>
+                            {it.pack ? <span class="muted small"> · {it.pack}</span> : null}
+                          </span>
+                          <strong>{euro(it.price)}</strong>
+                        </label>
+                        <button class="iconbtn ghost remove" aria-label={`Махни ${it.name}`} onClick={() => onRemove(it)}>
+                          <Icon name="close" size={18} />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </section>

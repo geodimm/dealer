@@ -4,7 +4,6 @@ import { watchMatches } from '../lib/watch';
 import { euro, whenLabel } from '../lib/offers';
 import { storeColor } from './OfferCard';
 import { Icon } from './Icon';
-import { InstallCard } from './InstallCard';
 
 const SHOW = 4;
 
@@ -22,11 +21,6 @@ export function WatchScreen({
   data,
   watches,
   today,
-  alertsOn,
-  onEnableAlerts,
-  installed,
-  canPrompt,
-  onInstall,
   onNew,
   onEdit,
   onOpen,
@@ -34,11 +28,6 @@ export function WatchScreen({
   data: DataFile | undefined;
   watches: Watch[];
   today: string;
-  alertsOn: boolean;
-  onEnableAlerts: () => void;
-  installed: boolean;
-  canPrompt: boolean;
-  onInstall: () => void;
   onNew: () => void;
   onEdit: (w: Watch) => void;
   onOpen: (o: Offer) => void;
@@ -52,32 +41,14 @@ export function WatchScreen({
 
   return (
     <>
-      <header class="top">
-        <div class="brandrow">
-          <h1 class="title">Следя</h1>
-          <button class="filterbtn" onClick={onNew} style={{ height: '40px', padding: '0 14px' }}>
-            <Icon name="plus" size={16} stroke={2.6} /> Нов продукт
-          </button>
-        </div>
-      </header>
-      {!installed ? (
-        <div style={{ padding: '0 16px 10px' }}>
-          <InstallCard canPrompt={canPrompt} onInstall={onInstall} />
-        </div>
-      ) : !alertsOn ? (
-        <div class="banner">
-          <Icon name="bell" />
-          <span class="grow">Включи известията, за да разбираш за нови оферти, без да отваряш приложението.</span>
-          <button class="textbtn" onClick={onEnableAlerts}>
-            Включи
-          </button>
-        </div>
-      ) : null}
       <main class="content stack">
+        <button class="secondary addwatch" onClick={onNew}>
+          <Icon name="plus" size={16} stroke={2.6} /> Следи нов продукт
+        </button>
         {watches.length === 0 ? (
           <div class="empty">
             <strong>Още не следиш нищо</strong>
-            Добави продукт (напр. „Dolce Gusto“) или натисни сърцето на някоя оферта.
+            Добави продукт (напр. „Dolce Gusto“) или задръж пръст върху оферта и избери „Следи подобни оферти“.
           </div>
         ) : null}
         {watches.map((w) => {

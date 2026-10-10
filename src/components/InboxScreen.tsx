@@ -31,17 +31,14 @@ export function InboxScreen({
 
   return (
     <>
-      <header class="top">
-        <div class="brandrow">
-          <h1 class="title">Известия</h1>
-          {unread ? (
+      <main class="content stack">
+        {unread ? (
+          <div class="row" style={{ justifyContent: 'flex-end', marginTop: '-6px' }}>
             <button class="textbtn" onClick={onMarkAllRead}>
               Маркирай прочетени
             </button>
-          ) : null}
-        </div>
-      </header>
-      <main class="content stack">
+          </div>
+        ) : null}
         {items.length === 0 ? (
           <div class="empty">
             <strong>Още няма известия</strong>

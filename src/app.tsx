@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { DataFile, InboxItem, ListItem, Offer, Watch } from './lib/types';
 import { euro, isoDay, orderCategories, whenLabel } from './lib/offers';
 import { idbGet } from './lib/idb';
-import { getCachedData, getInbox, getWatches, refresh, saveInbox, saveWatches, watchMatches } from './lib/watch';
+import { getCachedData, getInbox, getWatches, refresh, saveInbox, saveWatches } from './lib/watch';
 import { useApplyTheme, useCatOrder, useFilters, useGroup, useList, useSort, useStored, useTheme } from './lib/prefs';
 import { backgroundStatus, disableBackground, enableAlerts, permission, showNotification, type Background } from './lib/alerts';
 import { OffersScreen } from './components/OffersScreen';
@@ -18,18 +18,20 @@ import { InboxScreen } from './components/InboxScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { Icon, type IconName } from './components/Icon';
 import { useInstall } from './lib/install';
+import { InstallCard } from './components/InstallCard';
 
 type Route = 'offers' | 'watch' | 'inbox' | 'list' | 'settings';
+// Bottom menu. "watch" (followed products) lives inside the Известия tab.
 const ROUTES: [Route, string, IconName][] = [
   ['offers', 'Оферти', 'tag'],
-  ['watch', 'Следя', 'heart'],
+  ['list', 'Списък', 'cart'],
   ['inbox', 'Известия', 'bell'],
-  ['list', 'Списък', 'list'],
   ['settings', 'Настройки', 'gear'],
 ];
+const ALL_ROUTES: Route[] = ['offers', 'watch', 'inbox', 'list', 'settings'];
 const routeFromHash = (): Route => {
   const r = location.hash.replace(/^#\/?/, '').split('?')[0] as Route;
-  return ROUTES.some(([k]) => k === r) ? r : 'offers';
+  return ALL_ROUTES.includes(r) ? r : 'offers';
 };
 
 const DATA_URL = new URL('data/offers.json', document.baseURI).href;
@@ -231,13 +233,17 @@ export function App() {
     setBackground(await backgroundStatus());
   };
 
-  const isWatched = useCallback((o: Offer) => watches.some((w) => watchMatches(w, o, today)), [watches, today]);
 
   const storeOf = (o: Offer) => data?.stores.find((s) => s.id === o.store);
   const inList = (o: Offer) => list.some((i) => i.id === o.id);
+  const listIds = useMemo(() => new Set(list.map((i) => i.id)), [list]);
+  const isInList = useCallback((o: Offer) => listIds.has(o.id), [listIds]);
   const toggleList = (o: Offer) => {
-    if (inList(o)) setList((prev) => prev.filter((i) => i.id !== o.id));
-    else {
+    if (inList(o)) {
+      const before = list;
+      setList((prev) => prev.filter((i) => i.id !== o.id));
+      say('Махнато от списъка', () => setList(before));
+    } else {
       setList((prev) => [...prev, { id: o.id, store: o.store, name: o.brand ? `${o.brand} ${o.name}` : o.name, pack: o.pack, price: o.price, to: o.to, done: false }]);
       say('Добавено в списъка');
     }
@@ -264,9 +270,9 @@ export function App() {
             setSort={setSort}
             group={group}
             setGroup={setGroup}
-            isWatched={isWatched}
+            isInList={isInList}
             onOpen={setDetail}
-            onWatch={openWatchFor}
+            onCart={toggleList}
             onMenu={setMenuFor}
             categories={categories}
             onEditOrder={() => setOrderOpen('sort')}
@@ -287,38 +293,75 @@ export function App() {
           </div>
         )
       ) : null}
-      {route === 'watch' ? (
-        <WatchScreen
+      {route === 'watch' || route === 'inbox' ? (
+        <>
+          <header class="top">
+            <div class="brandrow">
+              <h1 class="title">Известия</h1>
+              <button class="filterbtn" onClick={() => setEditing({ watch: newWatch(), isNew: true })} style={{ height: '40px', padding: '0 14px' }}>
+                <Icon name="plus" size={16} stroke={2.6} /> Следи
+              </button>
+            </div>
+            <div class="seg" role="tablist" aria-label="Известия">
+              <a role="tab" class="segtab" href="#/inbox" aria-selected={route === 'inbox'}>
+                Известия{badge('inbox') ? ` (${badge('inbox')})` : ''}
+              </a>
+              <a role="tab" class="segtab" href="#/watch" aria-selected={route === 'watch'}>
+                Следени{watches.length ? ` (${watches.length})` : ''}
+              </a>
+            </div>
+          </header>
+          {!app.installed ? (
+            <div style={{ padding: '0 16px 10px' }}>
+              <InstallCard canPrompt={app.canPrompt} onInstall={installApp} />
+            </div>
+          ) : !alertsOn ? (
+            <div class="banner">
+              <Icon name="bell" />
+              <span class="grow">Включи известията, за да разбираш за нови оферти, без да отваряш приложението.</span>
+              <button class="textbtn" onClick={turnOnAlerts}>
+                Включи
+              </button>
+            </div>
+          ) : null}
+          {route === 'watch' ? (
+            <WatchScreen
+              data={data}
+              watches={watches}
+              today={today}
+              onNew={() => setEditing({ watch: newWatch(), isNew: true })}
+              onEdit={(w) => setEditing({ watch: w, isNew: false })}
+              onOpen={setDetail}
+            />
+          ) : (
+            <InboxScreen
+              items={inbox}
+              onOpen={async (it) => {
+                const next = inbox.map((x) => (x.id === it.id ? { ...x, read: true } : x));
+                setInbox(next);
+                await saveInbox(next);
+                location.hash = '#/watch';
+              }}
+              onMarkAllRead={async () => {
+                const next = inbox.map((x) => ({ ...x, read: true }));
+                setInbox(next);
+                await saveInbox(next);
+              }}
+            />
+          )}
+        </>
+      ) : null}
+      {route === 'list' ? <ListScreen
           data={data}
-          watches={watches}
-          today={today}
-          alertsOn={alertsOn}
-          onEnableAlerts={turnOnAlerts}
-          installed={app.installed}
-          canPrompt={app.canPrompt}
-          onInstall={installApp}
-          onNew={() => setEditing({ watch: newWatch(), isNew: true })}
-          onEdit={(w) => setEditing({ watch: w, isNew: false })}
-          onOpen={setDetail}
-        />
-      ) : null}
-      {route === 'inbox' ? (
-        <InboxScreen
-          items={inbox}
-          onOpen={async (it) => {
-            const next = inbox.map((x) => (x.id === it.id ? { ...x, read: true } : x));
-            setInbox(next);
-            await saveInbox(next);
-            location.hash = '#/watch';
+          items={list}
+          setItems={setList}
+          onShare={shareList}
+          onRemove={(it) => {
+            const before = list;
+            setList((prev) => prev.filter((x) => x.id !== it.id));
+            say(`Махнато: ${it.name}`, () => setList(before));
           }}
-          onMarkAllRead={async () => {
-            const next = inbox.map((x) => ({ ...x, read: true }));
-            setInbox(next);
-            await saveInbox(next);
-          }}
-        />
-      ) : null}
-      {route === 'list' ? <ListScreen data={data} items={list} setItems={setList} onShare={shareList} /> : null}
+        /> : null}
       {route === 'settings' ? (
         <SettingsScreen
           data={data}
@@ -341,7 +384,7 @@ export function App() {
 
       <nav class="nav" aria-label="Основна навигация">
         {ROUTES.map(([key, label, icon]) => (
-          <a href={`#/${key}`} aria-current={route === key ? 'page' : undefined}>
+          <a href={`#/${key}`} aria-current={route === key || (key === 'inbox' && route === 'watch') ? 'page' : undefined}>
             <Icon name={icon} size={22} />
             {label}
             {badge(key) ? <span class="pip">{badge(key)}</span> : null}

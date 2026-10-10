@@ -28,15 +28,15 @@ interface Props {
   offer: Offer;
   store: Store | undefined;
   today: string;
-  watched: boolean;
+  inList: boolean;
   onOpen: (o: Offer) => void;
-  onWatch: (o: Offer) => void;
+  onCart: (o: Offer) => void;
   onMenu: (o: Offer) => void;
 }
 
 const HOLD_MS = 450;
 
-export const OfferCard = memo(function OfferCard({ offer: o, store, today, watched, onOpen, onWatch, onMenu }: Props) {
+export const OfferCard = memo(function OfferCard({ offer: o, store, today, inList, onOpen, onCart, onMenu }: Props) {
   const when = whenLabel(o, today);
   const unit = unitLabel(o);
 
@@ -111,11 +111,12 @@ export const OfferCard = memo(function OfferCard({ offer: o, store, today, watch
           {store?.name ?? o.store}
         </span>
         <button
-          class={`watchbtn${watched ? ' on' : ''}`}
-          aria-label={watched ? 'Вече следите подобен продукт' : 'Следи този продукт'}
-          onClick={() => onWatch(o)}
+          class={`cartbtn${inList ? ' on' : ''}`}
+          aria-label={inList ? 'Махни от списъка' : 'Добави в списъка'}
+          aria-pressed={inList}
+          onClick={() => onCart(o)}
         >
-          <Icon name="heart" size={17} />
+          <Icon name={inList ? 'cartcheck' : 'cart'} size={18} />
         </button>
       </div>
       <div class="body">
