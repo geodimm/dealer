@@ -411,8 +411,6 @@ export function App() {
           installed={app.installed}
           canPrompt={app.canPrompt}
           onInstall={installApp}
-          categories={categories}
-          onEditOrder={() => setOrderOpen('settings')}
           hiddenStores={hiddenStores}
           setHiddenStores={setHiddenStores}
         />

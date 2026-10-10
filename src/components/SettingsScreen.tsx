@@ -1,4 +1,4 @@
-import type { Category, DataFile } from '../lib/types';
+import type { DataFile } from '../lib/types';
 import type { ThemePref } from '../lib/prefs';
 import type { Background } from '../lib/alerts';
 import { InstallCard } from './InstallCard';
@@ -34,8 +34,6 @@ export function SettingsScreen({
   installed,
   canPrompt,
   onInstall,
-  categories,
-  onEditOrder,
   hiddenStores,
   setHiddenStores,
 }: {
@@ -52,8 +50,6 @@ export function SettingsScreen({
   installed: boolean;
   canPrompt: boolean;
   onInstall: () => void;
-  categories: Category[];
-  onEditOrder: () => void;
   hiddenStores: string[];
   setHiddenStores: (ids: string[]) => void;
 }) {
@@ -109,23 +105,6 @@ export function SettingsScreen({
             })}
           </div>
           <p class="hint">Изключените магазини не се показват никъде и не пращат известия.</p>
-        </section>
-
-        <section class="section">
-          <h3>Ред на категориите</h3>
-          <div class="panel row">
-            <span class="grow hint" style={{ fontSize: '14px', color: 'var(--text)' }}>
-              {categories
-                .slice(0, 4)
-                .map((c) => c.label)
-                .join(' → ')}
-              {categories.length > 4 ? ' → …' : ''}
-            </span>
-            <button class="secondary" style={{ height: '40px', padding: '0 14px' }} onClick={onEditOrder}>
-              Подреди
-            </button>
-          </div>
-          <p class="hint">Използва се при сортиране „Релевантност“ и при групиране по категория.</p>
         </section>
 
         <section class="section">
