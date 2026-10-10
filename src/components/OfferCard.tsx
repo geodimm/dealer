@@ -1,5 +1,5 @@
 import { memo } from 'preact/compat';
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import type { Offer, Store } from '../lib/types';
 import { euro, unitLabel, whenLabel } from '../lib/offers';
 import { Icon } from './Icon';
@@ -31,14 +31,78 @@ interface Props {
   watched: boolean;
   onOpen: (o: Offer) => void;
   onWatch: (o: Offer) => void;
+  onMenu: (o: Offer) => void;
 }
 
-export const OfferCard = memo(function OfferCard({ offer: o, store, today, watched, onOpen, onWatch }: Props) {
+const HOLD_MS = 450;
+
+export const OfferCard = memo(function OfferCard({ offer: o, store, today, watched, onOpen, onWatch, onMenu }: Props) {
   const when = whenLabel(o, today);
   const unit = unitLabel(o);
+
+  // Long press (or right click) opens the card menu. Android/desktop fire
+  // `contextmenu`; iOS doesn't, so a touch timer covers it. Whichever fires
+  // first wins, and the click that follows the press is swallowed.
+  const timer = useRef<number>();
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const fired = useRef(false);
+  const fire = () => {
+    if (fired.current) return;
+    fired.current = true;
+    navigator.vibrate?.(15);
+    onMenu(o);
+  };
+  const cancel = () => {
+    clearTimeout(timer.current);
+    start.current = null;
+  };
+
   return (
-    <article class="card">
-      <button class="open" aria-label={`${o.brand} ${o.name}, ${euro(o.price)}`} onClick={() => onOpen(o)} />
+    <article
+      class="card"
+      onContextMenu={(e) => {
+        e.preventDefault();
+        fire();
+      }}
+      onTouchStart={(e) => {
+        fired.current = false;
+        const t = e.touches[0];
+        start.current = { x: t.clientX, y: t.clientY };
+        timer.current = window.setTimeout(fire, HOLD_MS);
+      }}
+      onTouchMove={(e) => {
+        const t = e.touches[0];
+        if (start.current && Math.hypot(t.clientX - start.current.x, t.clientY - start.current.y) > 10) cancel();
+      }}
+      onTouchEnd={(e) => {
+        cancel();
+        // Lifting the finger after a long press would "click" whatever is now
+        // under it (the menu's backdrop); cancel that click.
+        if (fired.current && e.cancelable) e.preventDefault();
+      }}
+      onTouchCancel={cancel}
+      onMouseDown={() => (fired.current = false)}
+    >
+      <button
+        class="open"
+        aria-label={`${o.brand} ${o.name}, ${euro(o.price)}`}
+        aria-haspopup="dialog"
+        onClick={(e) => {
+          if (fired.current) {
+            e.preventDefault();
+            fired.current = false;
+            return;
+          }
+          onOpen(o);
+        }}
+        onKeyDown={(e) => {
+          // Keyboard equivalent of the long press.
+          if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+            e.preventDefault();
+            onMenu(o);
+          }
+        }}
+      />
       <div style={{ position: 'relative' }}>
         <OfferImage offer={o} class="media" />
         {o.pct ? <span class="badge">−{o.pct}%</span> : null}

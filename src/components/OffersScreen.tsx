@@ -30,6 +30,7 @@ export function OffersScreen({
   isWatched,
   onOpen,
   onWatch,
+  onMenu,
 }: {
   data: DataFile;
   today: string;
@@ -42,6 +43,7 @@ export function OffersScreen({
   isWatched: (o: Offer) => boolean;
   onOpen: (o: Offer) => void;
   onWatch: (o: Offer) => void;
+  onMenu: (o: Offer) => void;
 }) {
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -153,6 +155,7 @@ export function OffersScreen({
                       watched={isWatched(o)}
                       onOpen={onOpen}
                       onWatch={onWatch}
+                      onMenu={onMenu}
                     />
                   ))}
                 </div>

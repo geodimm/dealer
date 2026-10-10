@@ -290,6 +290,10 @@ h1.title {
   }
 }
 .card {
+  /* Long press opens our menu, not the browser's image/text callout. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   background: var(--surf);
   border-radius: 18px;
   overflow: hidden;
@@ -1223,4 +1227,49 @@ h1.title {
 }
 .steps svg {
   vertical-align: -2px;
+}
+.menulist {
+  display: flex;
+  flex-direction: column;
+  margin: -6px -8px 0;
+}
+.menuitem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 52px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: left;
+}
+.menuitem:active {
+  background: var(--seg);
+}
+.menuitem svg {
+  color: var(--muted);
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.toast button {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 800;
+  padding: 4px 0;
+}
+:root[data-theme='dark'] .toast button {
+  color: #4d7c0f;
+}
+.sheet:focus {
+  outline: none;
+}
+.sheethead h2 {
+  line-height: 1.25;
 }

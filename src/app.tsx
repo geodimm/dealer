@@ -7,6 +7,7 @@ import { useApplyTheme, useFilters, useGroup, useList, useSort, useStored, useTh
 import { backgroundStatus, disableBackground, enableAlerts, permission, showNotification, type Background } from './lib/alerts';
 import { OffersScreen } from './components/OffersScreen';
 import { OfferDetail } from './components/OfferDetail';
+import { CardMenu, HideSheet } from './components/CardMenu';
 import { WatchEditor } from './components/WatchEditor';
 import { WatchScreen } from './components/WatchScreen';
 import { ListScreen } from './components/ListScreen';
@@ -57,7 +58,9 @@ export function App() {
   const [inbox, setInbox] = useState<InboxItem[]>([]);
   const [detail, setDetail] = useState<Offer | null>(null);
   const [editing, setEditing] = useState<{ watch: Watch; isNew: boolean } | null>(null);
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState<{ msg: string; undo?: () => void } | null>(null);
+  const [menuFor, setMenuFor] = useState<Offer | null>(null);
+  const [hideFor, setHideFor] = useState<Offer | null>(null);
   const [perm, setPerm] = useState(permission());
   const [background, setBackground] = useState<Background>('unsupported');
 
@@ -73,9 +76,11 @@ export function App() {
 
   const today = isoDay();
 
-  const say = useCallback((msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 2600);
+  const toastTimer = useRef<number>();
+  const say = useCallback((msg: string, undo?: () => void) => {
+    setToast({ msg, undo });
+    clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), undo ? 5000 : 2600);
   }, []);
 
   const doRefresh = useCallback(
@@ -192,6 +197,7 @@ export function App() {
             isWatched={isWatched}
             onOpen={setDetail}
             onWatch={openWatchFor}
+            onMenu={setMenuFor}
           />
         ) : (
           <div class="loading" style={{ paddingTop: '30vh' }}>
@@ -278,6 +284,43 @@ export function App() {
           onClose={() => setDetail(null)}
         />
       ) : null}
+      {menuFor ? (
+        <CardMenu
+          offer={menuFor}
+          store={storeOf(menuFor)}
+          inList={inList(menuFor)}
+          onHide={() => {
+            setMenuFor(null);
+            setHideFor(menuFor);
+          }}
+          onWatch={() => {
+            setMenuFor(null);
+            openWatchFor(menuFor);
+          }}
+          onToggleList={() => {
+            toggleList(menuFor);
+            setMenuFor(null);
+          }}
+          onOpen={() => {
+            setMenuFor(null);
+            setDetail(menuFor);
+          }}
+          onClose={() => setMenuFor(null)}
+        />
+      ) : null}
+      {hideFor && data ? (
+        <HideSheet
+          offer={hideFor}
+          offers={data.offers}
+          onClose={() => setHideFor(null)}
+          onHide={(term) => {
+            const before = filters;
+            if (!filters.hide.some((h) => h.toLowerCase() === term.toLowerCase())) setFilters({ ...filters, hide: [...filters.hide, term] });
+            setHideFor(null);
+            say(`Скрито: „${term}“`, () => setFilters(before));
+          }}
+        />
+      ) : null}
       {editing ? (
         <WatchEditor
           initial={editing.watch}
@@ -305,7 +348,17 @@ export function App() {
       ) : null}
       {toast ? (
         <div class="toast" role="status">
-          {toast}
+          <span>{toast.msg}</span>
+          {toast.undo ? (
+            <button
+              onClick={() => {
+                toast.undo!();
+                setToast(null);
+              }}
+            >
+              Отмени
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

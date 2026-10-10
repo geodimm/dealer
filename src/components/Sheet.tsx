@@ -32,6 +32,8 @@ export function Sheet({
   const ref = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
+  // Ignore backdrop taps right after opening (e.g. the end of a long press).
+  const openedAt = useRef(Date.now());
 
   useEffect(() => {
     // Push a history entry so the phone's back gesture closes the sheet.
@@ -64,7 +66,7 @@ export function Sheet({
   }, []);
 
   return (
-    <div class="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div class="scrim" onClick={(e) => e.target === e.currentTarget && Date.now() - openedAt.current > 350 && onClose()}>
       <div class="sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={ref}>
         <div class="handle" />
         <div class="sheethead">
