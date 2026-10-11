@@ -1553,3 +1553,29 @@ h1.title {
   font-size: 18px;
   font-weight: 700;
 }
+.listrow.expired .lprice {
+  text-decoration: line-through;
+  color: var(--muted);
+  font-weight: 600;
+}
+.listrow.expired .lthumb {
+  opacity: 0.5;
+}
+.lstate {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--soon);
+}
+.lupdate {
+  white-space: nowrap;
+  align-self: flex-start;
+  padding: 3px 8px;
+  border: 1px solid var(--accent-ink);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent-ink);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}

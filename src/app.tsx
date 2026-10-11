@@ -17,6 +17,7 @@ import { WatchScreen } from './components/WatchScreen';
 import { ListScreen } from './components/ListScreen';
 import { InboxScreen } from './components/InboxScreen';
 import { SettingsScreen } from './components/SettingsScreen';
+import { itemFromOffer } from './lib/list';
 import { Icon, type IconName } from './components/Icon';
 import { useInstall } from './lib/install';
 import { piecePrice } from './lib/units';
@@ -293,7 +294,7 @@ export function App() {
       setList((prev) => prev.filter((i) => i.id !== o.id));
       say('Махнато от списъка', () => setList(before));
     } else {
-      setList((prev) => [...prev, { id: o.id, store: o.store, name: o.brand ? `${o.brand} ${o.name}` : o.name, pack: o.pack, price: o.price, to: o.to, done: false, image: o.image }]);
+      setList((prev) => [...prev, itemFromOffer(o)]);
       say('Добавено в списъка');
     }
   };

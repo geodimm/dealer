@@ -1,7 +1,8 @@
 import { useState } from 'preact/hooks';
 import type { DataFile, ListItem } from '../lib/types';
 import { StoreBadge } from './StoreBadge';
-import { euro } from '../lib/offers';
+import { euro, isoDay } from '../lib/offers';
+import { itemFromOffer, listStatus, type ListStatus } from '../lib/list';
 import { Icon } from './Icon';
 
 function Thumb({ src }: { src: string | null | undefined }) {
@@ -37,8 +38,22 @@ export function ListScreen({
   const imageOf = (it: ListItem) => it.image ?? data?.offers.find((o) => o.id === it.id)?.image ?? null;
   const byStore = new Map<string, ListItem[]>();
   for (const it of items) byStore.set(it.store, [...(byStore.get(it.store) ?? []), it]);
-  const sum = (list: ListItem[]) => list.reduce((s, i) => s + i.price, 0);
+  const today = isoDay();
+  const status = new Map<string, ListStatus>(
+    data ? items.map((it) => [it.id, listStatus(it, data.offers, today)]) : [],
+  );
+  const expired = (it: ListItem) => !!status.get(it.id)?.expired;
+  // Expired promos don't count: their price is no longer what you'd pay.
+  const sum = (list: ListItem[]) => list.reduce((s, i) => s + (expired(i) ? 0 : i.price), 0);
   const done = items.filter((i) => i.done);
+  const live = items.filter((i) => !expired(i));
+  const gone = items.length - live.length;
+  const applyUpdate = (it: ListItem, o: NonNullable<ListStatus['update']>) =>
+    setItems((prev) =>
+      prev.some((x) => x.id === o.id && x.id !== it.id)
+        ? prev.filter((x) => x.id !== it.id)
+        : prev.map((x) => (x.id === it.id ? itemFromOffer(o, x.done) : x)),
+    );
 
   return (
     <>
@@ -76,23 +91,40 @@ export function ListScreen({
                     <span class="muted small">{euro(sum(list))}</span>
                   </div>
                   <div>
-                    {list.map((it) => (
-                      <div class={`listrow${it.done ? ' done' : ''}`} key={it.id}>
-                        <label class="row grow" style={{ gap: '10px', minHeight: '56px' }}>
-                          <input
-                            type="checkbox"
-                            checked={it.done}
-                            onChange={() => setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, done: !x.done } : x)))}
-                          />
-                          <Thumb src={imageOf(it)} />
-                          <span class="grow lname">{it.name}</span>
-                          <strong class="lprice">{euro(it.price)}</strong>
-                        </label>
-                        <button class="iconbtn ghost remove" aria-label={`Махни ${it.name}`} onClick={() => onRemove(it)}>
-                          <Icon name="close" size={18} />
-                        </button>
-                      </div>
-                    ))}
+                    {list.map((it) => {
+                      const st = status.get(it.id);
+                      return (
+                        <div class={`listrow${it.done ? ' done' : ''}${st?.expired ? ' expired' : ''}`} key={it.id}>
+                          <label class="row grow" style={{ gap: '10px', minHeight: '56px' }}>
+                            <input
+                              type="checkbox"
+                              checked={it.done}
+                              onChange={() => setItems((prev) => prev.map((x) => (x.id === it.id ? { ...x, done: !x.done } : x)))}
+                            />
+                            <Thumb src={imageOf(it)} />
+                            <span class="grow stack" style={{ gap: '3px', minWidth: 0 }}>
+                              <span class="lname">{it.name}</span>
+                              {st?.expired ? <span class="lstate">Промоцията изтече</span> : null}
+                              {st?.update ? (
+                                <button
+                                  class="lupdate"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    applyUpdate(it, st.update!);
+                                  }}
+                                >
+                                  {st.expired ? 'Пак в промоция' : 'Нова цена'} {euro(st.update.price)} · Обнови
+                                </button>
+                              ) : null}
+                            </span>
+                            <strong class="lprice">{euro(it.price)}</strong>
+                          </label>
+                          <button class="iconbtn ghost remove" aria-label={`Махни ${it.name}`} onClick={() => onRemove(it)}>
+                            <Icon name="close" size={18} />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </section>
               );
@@ -103,6 +135,11 @@ export function ListScreen({
                   Досега · {done.length} от {items.length}
                 </span>
                 <span class="sofar">{euro(sum(done))}</span>
+                {gone ? (
+                  <span class="muted small">
+                    {gone} {gone === 1 ? 'изтекла промоция не е включена' : 'изтекли промоции не са включени'}
+                  </span>
+                ) : null}
               </div>
               <div class="stack" style={{ gap: '2px', alignItems: 'flex-end' }}>
                 <span class="muted small">Общо</span>
