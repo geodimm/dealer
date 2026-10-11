@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { Counts, DataFile, InboxItem, ListItem, Offer, Watch } from './lib/types';
 import { euro, isoDay, orderCategories, whenLabel } from './lib/offers';
 import { idbGet } from './lib/idb';
-import { alertBody, alertFor, getCachedData, getCounts, getInbox, getWatches, refresh, saveInbox, saveWatches, watchMatches } from './lib/watch';
+import { alertBody, alertFor, getCachedData, getCounts, getInbox, getWatches, refresh, saveInbox, saveWatches, termFrom, watchMatches } from './lib/watch';
 import { idbSet } from './lib/idb';
 import { useApplyTheme, useCatOrder, useFilters, useGroup, useList, useSort, useStored, useTheme } from './lib/prefs';
 import { backgroundStatus, disableBackground, enableAlerts, permission, showNotification, type Background } from './lib/alerts';
@@ -48,14 +48,6 @@ const newWatch = (term = ''): Watch => ({
   exclude: [],
   createdAt: Date.now(),
 });
-
-/** A sensible starting search term from an offer's name. */
-const termFrom = (o: Offer) =>
-  o.name
-    .replace(/\s*(различни|избрани)\s+(видове|вкусове|цветове|модели)\.?$/i, '')
-    .replace(/\s*\d+([.,]\d+)?\s*(г|кг|мл|л|g|kg|ml|l)\b.*$/i, '')
-    .trim();
-
 export function App() {
   const [route, setRoute] = useState<Route>(routeFromHash);
   const [query, setQuery] = useState('');

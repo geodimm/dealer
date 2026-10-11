@@ -48,6 +48,17 @@ export const getInbox = async () => (await idbGet<InboxItem[]>('inbox')) ?? [];
 export const saveInbox = (items: InboxItem[]) => idbSet('inbox', items.slice(0, 100));
 export const getCachedData = () => idbGet<DataFile>('data');
 
+/** A sensible starting search term from an offer's name. */
+export function termFrom(o: Offer): string {
+  const term = o.name
+    // Not `\b`: it only knows ASCII letters, so it never fires after "г" or "л".
+    .replace(/\s*(\d+\s*[xх]\s*)?\d+([.,]\d+)?\s*(г|кг|мл|л|g|kg|ml|l)(?![а-яa-z]).*$/i, '')
+    .replace(/\s*(различни|избрани)\s+(видове|вкусове|цветове|модели)\.?$/i, '')
+    .trim();
+  // Some names are only a size ("8 x 0,33 л кен") or "различни видове".
+  return /[а-яa-z]{2}/i.test(term) ? term : o.brand || o.name;
+}
+
 /** Save watches; offers already matching a new watch count as "seen" so we don't ping about them. */
 export async function saveWatches(watches: Watch[]) {
   await idbSet('watches', watches);
