@@ -52,8 +52,13 @@ export function OfferDetail({
     if (!words) return [];
     return allOffers.filter((x) => x.cat === o.cat && !isExpired(x, today) && searchKey(x).includes(words));
   }, [o, allOffers, today]);
-  // Compare per piece when this offer or any similar one has a piece count.
-  const kind: UnitKind | null = pp || candidates.some((x) => piecePrice(x, counts)) ? 'pc' : wp?.kind ?? null;
+  // Compare in this offer's own unit: per piece when it has a count, else per
+  // kg/l; per piece only as a last resort, when similar offers have counts.
+  const kind: UnitKind | null = pp ? 'pc' : wp?.kind ?? (candidates.some((x) => piecePrice(x, counts)) ? 'pc' : null);
+  // Sold by weight/volume: the piece-count box stays tucked away unless asked for.
+  const [countOpen, setCountOpen] = useState(false);
+  useEffect(() => setCountOpen(false), [o.id]);
+  const showCount = !!pp || !wp || countOpen;
 
   const similar = useMemo(() => {
     if (!kind) return [];
@@ -99,24 +104,28 @@ export function OfferDetail({
               <dd>{o.pack}</dd>
             </>
           ) : null}
-          <dt>Цена за брой</dt>
-          <dd>
-            {pp ? (
-              <>
+          {pp ? (
+            <>
+              <dt>Цена за брой</dt>
+              <dd>
                 <strong>{unitText(pp)}</strong>
                 <span class="muted small">
                   {' '}
                   · {pp.count} бр.{pp.user ? ' (въведено от теб)' : pp.est ? ' (прибл., по грамажа)' : ''}
                 </span>
-              </>
-            ) : (
-              <span class="muted">неизвестна</span>
-            )}
-          </dd>
+              </dd>
+            </>
+          ) : null}
           {wp ? (
             <>
               <dt>Цена за {wp.kind === 'kg' ? 'кг' : 'л'}</dt>
-              <dd>{unitText(wp)}</dd>
+              <dd>{pp ? unitText(wp) : <strong>{unitText(wp)}</strong>}</dd>
+            </>
+          ) : null}
+          {!pp && !wp ? (
+            <>
+              <dt>Цена за брой</dt>
+              <dd class="muted">неизвестна</dd>
             </>
           ) : null}
           <dt>Валидност</dt>
@@ -128,7 +137,12 @@ export function OfferDetail({
             </>
           ) : null}
         </dl>
-        <div class="countedit">
+        {!showCount ? (
+          <button class="textbtn" style={{ alignSelf: 'flex-start' }} onClick={() => setCountOpen(true)}>
+            Сравни по брой в опаковката
+          </button>
+        ) : null}
+        {showCount ? <div class="countedit">
           <label class="field" style={{ flex: 1 }}>
             <span class="hint">Брой в опаковката (капсули, пранета, ролки…)</span>
             <input
@@ -145,7 +159,7 @@ export function OfferDetail({
           >
             {countText ? 'Запази' : counts[o.id] ? 'Изчисти' : 'Запази'}
           </button>
-        </div>
+        </div> : null}
         {similar.length > 1 ? (
           <section class="compare">
             <h3 class="label">Сравни по цена за {kind === 'pc' ? 'брой' : kind === 'kg' ? 'кг' : 'л'}</h3>
@@ -172,7 +186,7 @@ export function OfferDetail({
             <Icon name="bell" size={18} /> Следи подобни оферти
           </button>
           <button class="action" onClick={onToggleList}>
-            <Icon name={inList ? 'check' : 'list'} size={18} /> {inList ? 'В списъка' : 'Към списъка'}
+            <Icon name={inList ? 'cartcheck' : 'cart'} size={18} /> {inList ? 'В списъка' : 'Към списъка'}
           </button>
           <button class="action" onClick={onShare}>
             <Icon name="share" size={18} /> Сподели
