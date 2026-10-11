@@ -101,10 +101,16 @@ export async function refresh(
     const res = await fetch(dataUrl, { cache: 'no-cache' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     data = (await res.json()) as DataFile;
+  } catch {
+    return { data: await getCachedData(), fetched: false };
+  }
+  try {
     await idbSet('data', data);
     await idbSet('checkedAt', Date.now());
   } catch {
-    return { data: await getCachedData(), fetched: false };
+    // Saving failed (storage full?). Show the download anyway; alerts wait for
+    // a refresh that can also save which offers were already announced.
+    return { data, fetched: true };
   }
 
   const watches = await getWatches();
