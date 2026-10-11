@@ -33,6 +33,14 @@ describe('search folding', () => {
     expect(matchesTokens(fold('Nescafé Dolce Gusto'), tokens('nescafe dolce'))).toBe(true);
     expect(matchesTokens(fold('Кафе'), tokens('чай'))).toBe(false);
   });
+
+  it('matches "й" typed as "y" or "i"', () => {
+    expect(matchesTokens(fold('Черен чай'), tokens('chay'))).toBe(true);
+    expect(matchesTokens(fold('Черен чай'), tokens('chai'))).toBe(true);
+    expect(matchesTokens(fold('Майонеза'), tokens('mayoneza'))).toBe(true);
+    expect(matchesTokens(fold('Йогурт'), tokens('yogurt'))).toBe(true);
+    expect(fold('чаи\u0306')).toBe(fold('чай'));
+  });
 });
 
 describe('filterOffers', () => {
