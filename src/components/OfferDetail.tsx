@@ -55,10 +55,9 @@ export function OfferDetail({
   // Compare in this offer's own unit: per piece when it has a count, else per
   // kg/l; per piece only as a last resort, when similar offers have counts.
   const kind: UnitKind | null = pp ? 'pc' : wp?.kind ?? (candidates.some((x) => piecePrice(x, counts)) ? 'pc' : null);
-  // Sold by weight/volume: the piece-count box stays tucked away unless asked for.
-  const [countOpen, setCountOpen] = useState(false);
-  useEffect(() => setCountOpen(false), [o.id]);
-  const showCount = !!pp || !wp || countOpen;
+  // Sold by weight/volume (price per kg/l known) with no piece count: pieces
+  // mean nothing there, so no piece price and no way to enter a count.
+  const showCount = !!pp || !wp;
 
   const similar = useMemo(() => {
     if (!kind) return [];
@@ -137,11 +136,6 @@ export function OfferDetail({
             </>
           ) : null}
         </dl>
-        {!showCount ? (
-          <button class="textbtn" style={{ alignSelf: 'flex-start' }} onClick={() => setCountOpen(true)}>
-            Сравни по брой в опаковката
-          </button>
-        ) : null}
         {showCount ? <div class="countedit">
           <label class="field" style={{ flex: 1 }}>
             <span class="hint">Брой в опаковката (капсули, пранета, ролки…)</span>
