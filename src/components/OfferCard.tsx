@@ -3,6 +3,7 @@ import { StoreBadge } from './StoreBadge';
 import { useRef, useState } from 'preact/hooks';
 import type { Offer, Store } from '../lib/types';
 import { euro, whenLabel } from '../lib/offers';
+import { imageCors } from '../lib/images';
 import { Icon } from './Icon';
 
 export function storeColor(store: Store | undefined) {
@@ -20,7 +21,7 @@ export function OfferImage({ offer, class: cls }: { offer: Offer; class: string 
     );
   return (
     <div class={cls}>
-      <img src={offer.image} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onError={() => setBroken(true)} />
+      <img src={offer.image} crossorigin={imageCors(offer.image)} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onError={() => setBroken(true)} />
     </div>
   );
 }
