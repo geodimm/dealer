@@ -105,6 +105,18 @@ describe('categorize: aisle collisions', () => {
     ['Свинско месо в собствен сос', 'meat'],
     ['Сос Бешамел', 'sauces'],
     ['Морски дарове в сос', 'fish'],
+    ['Капсули за пране 4 в 1', 'household'],
+    ['Таблетки за съдомиялна All in One лимон', 'household'],
+    ['Мицеларна вода', 'cosmetics'],
+    ['Вода за уста Coolmint', 'cosmetics'],
+    ['Чиния за основно, маслинено зелен цвят', 'nonfood'],
+    ['BILLA ГРАДИНИ Пиперки зелени', 'produce'],
+    ['Хумус различни видове', 'breakfast'],
+    ['Хляб със семена', 'bakery'],
+    ['Джинджифил', 'produce'],
+    ['Джин', 'alcohol'],
+    ['Бира Столично', 'alcohol'],
+    ['Лютеница в буркан', 'canned'],
   ])('%s → %s', (name, cat) => expect(categorize({ name })).toBe(cat));
 });
 
