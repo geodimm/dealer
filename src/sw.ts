@@ -1,14 +1,15 @@
 /// <reference lib="webworker" />
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
-import { CacheFirst, StaleWhileRevalidate } from 'workbox-strategies';
+import { CacheFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { refresh } from './lib/watch';
 
 declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: (string | { url: string; revision: string | null })[] };
 
 self.skipWaiting();
-self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+// Installs that ran an older version still hold Google Fonts responses in the 'fonts' cache.
+self.addEventListener('activate', (e) => e.waitUntil(Promise.all([self.clients.claim(), caches.delete('fonts')])));
 
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
@@ -20,10 +21,6 @@ registerRoute(
     cacheName: 'images',
     plugins: [new ExpirationPlugin({ maxEntries: 600, maxAgeSeconds: 14 * 24 * 3600, purgeOnQuotaError: true })],
   }),
-);
-registerRoute(
-  ({ url }) => url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com',
-  new StaleWhileRevalidate({ cacheName: 'fonts' }),
 );
 
 const dataUrl = () => new URL('data/offers.json', self.registration.scope).href;
