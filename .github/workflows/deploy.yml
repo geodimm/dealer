@@ -9,7 +9,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # write: the price history is committed to the `data` branch.
+  contents: write
   pages: write
   id-token: write
 
@@ -28,8 +29,27 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # Price history lives on the `data` branch (data only, no code). Check it
+      # out into ./history; the very first run starts it as an empty branch.
+      - name: Get price history
+        run: |
+          if git fetch --depth=1 origin data; then
+            git worktree add --detach history FETCH_HEAD
+          else
+            git worktree add --orphan -b data history
+          fi
       - name: Collect offers
         run: npm run data
+      # Only main records history; other branches just read it.
+      - name: Save price history
+        if: github.ref == 'refs/heads/main'
+        working-directory: history
+        run: |
+          git add -A
+          if git diff --cached --quiet; then echo "No new prices"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Prices $(date -u +'%F %H:%M')"
+          git push origin HEAD:data
       - run: npm run build
       # Other branches only build and test; GitHub Pages deploys from main.
       - if: github.ref == 'refs/heads/main'

@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { CATEGORIES } from './categories.mjs';
 import { dedupe } from './normalize.mjs';
 import * as bgpromo from './sources/bgpromo.mjs';
+import { loadHistory, lows, record, saveHistory } from './history.mjs';
 
 const SOURCES = [bgpromo];
 const STORES = [
@@ -22,6 +23,8 @@ const STORES = [
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const out = resolve(root, 'public/data/offers.json');
 const today = new Date().toISOString().slice(0, 10);
+// Price history: the `data` branch, checked out here by the workflow.
+const historyDir = process.env.DEALER_HISTORY_DIR ?? resolve(root, 'history');
 
 function previousUrl() {
   if (process.env.DEALER_PREVIOUS_URL) return process.env.DEALER_PREVIOUS_URL;
@@ -78,8 +81,22 @@ if (final.length === 0) {
   process.exit(1);
 }
 
+// Record only what sources returned today, not offers reused from the last build.
+const history = await loadHistory(historyDir);
+let historySince = null;
+if (history) {
+  const fresh = final.filter((o) => status[o.store]?.ok);
+  const added = record(history, fresh, today);
+  await saveHistory(history, today);
+  historySince = lows(history, final, today);
+  console.log(`History: +${added} prices, ${Object.keys(history.products).length} products since ${historySince}`);
+} else {
+  console.log(`History: none at ${historyDir} — skipping lowest prices`);
+}
+
 const data = {
   version: 1,
+  historySince,
   generatedAt: new Date().toISOString(),
   stores: STORES.map((s) => ({
     ...s,

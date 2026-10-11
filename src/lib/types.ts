@@ -18,6 +18,8 @@ export interface Offer {
   image: string | null;
   url: string | null;
   cat: string;
+  /** Lowest earlier promo price of this product: [price, day] per window. */
+  low?: Partial<Record<'m3' | 'm6' | 'm12', [number, string]>>;
 }
 
 export interface Store {
@@ -38,6 +40,8 @@ export interface Category {
 export interface DataFile {
   version: number;
   generatedAt: string;
+  /** First day of recorded price history (null before any). */
+  historySince?: string | null;
   stores: Store[];
   categories: Category[];
   attribution: { name: string; link: string }[];
