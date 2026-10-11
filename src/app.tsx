@@ -288,16 +288,21 @@ export function App() {
   const inList = (o: Offer) => list.some((i) => i.id === o.id);
   const listIds = useMemo(() => new Set(list.map((i) => i.id)), [list]);
   const isInList = useCallback((o: Offer) => listIds.has(o.id), [listIds]);
-  const toggleList = (o: Offer) => {
-    if (inList(o)) {
-      const removed = removedBy(list, (i) => i.id === o.id);
-      setList((prev) => prev.filter((i) => i.id !== o.id));
-      say('Махнато от списъка', () => setList((prev) => restoreItems(prev, removed)));
-    } else {
-      setList((prev) => [...prev, itemFromOffer(o)]);
-      say('Добавено в списъка');
-    }
-  };
+  const listRef = useRef(list);
+  listRef.current = list;
+  const toggleList = useCallback(
+    (o: Offer) => {
+      const removed = removedBy(listRef.current, (i) => i.id === o.id);
+      if (removed.length) {
+        setList((prev) => prev.filter((i) => i.id !== o.id));
+        say('Махнато от списъка', () => setList((prev) => restoreItems(prev, removed)));
+      } else {
+        setList((prev) => [...prev, itemFromOffer(o)]);
+        say('Добавено в списъка');
+      }
+    },
+    [say, setList],
+  );
 
   // Followed products that have at least one offer right now.
   const watchesOnSale = useMemo(
