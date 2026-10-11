@@ -128,13 +128,13 @@ export function App() {
     async (manual = false) => {
       setRefreshing(true);
       const before = (await getCachedData())?.generatedAt;
-      const fresh = await refresh(DATA_URL, alertsOn ? showNotification : null);
+      const { data: fresh, fetched } = await refresh(DATA_URL, alertsOn ? showNotification : null);
       if (fresh) setData(fresh);
       setInbox(await getInbox());
       setCheckedAt((await idbGet<number>('checkedAt')) ?? null);
       setRefreshing(false);
       setLoading(false);
-      if (manual) say(!fresh ? 'Няма връзка – показвам запазените оферти' : fresh.generatedAt !== before ? 'Офертите са обновени' : 'Няма нови оферти');
+      if (manual) say(!fetched ? 'Няма връзка – показвам запазените оферти' : fresh?.generatedAt !== before ? 'Офертите са обновени' : 'Няма нови оферти');
     },
     [alertsOn, say],
   );
