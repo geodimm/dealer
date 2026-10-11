@@ -180,6 +180,8 @@ export function App() {
     const clean = (r: Route) => history.replaceState(history.state, '', `${location.pathname}#/${r}`);
     if (incoming.kind === 'offer') {
       const o = data!.offers.find((x) => x.id === incoming.id);
+      // The cached data can predate the offer; wait for the refresh in flight.
+      if (!o && refreshing) return;
       if (o) setDetail(o);
       else say('Тази оферта вече не е активна');
       clean('offers');
@@ -202,7 +204,7 @@ export function App() {
       clean('list');
     }
     setIncoming(null);
-  }, [incoming, data]);
+  }, [incoming, data, refreshing]);
 
   const shared = (res: 'shared' | 'copied' | 'failed') => {
     if (res === 'copied') say('Линкът е копиран');
