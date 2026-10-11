@@ -3,6 +3,7 @@ import type { DataFile, ListItem } from '../lib/types';
 import { StoreBadge } from './StoreBadge';
 import { euro, isoDay } from '../lib/offers';
 import { itemFromOffer, listStatus, type ListStatus } from '../lib/list';
+import { imageCors } from '../lib/images';
 import { Icon } from './Icon';
 
 function Thumb({ src }: { src: string | null | undefined }) {
@@ -10,7 +11,7 @@ function Thumb({ src }: { src: string | null | undefined }) {
   return (
     <span class="lthumb">
       {src && !broken ? (
-        <img src={src} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onError={() => setBroken(true)} />
+        <img src={src} crossorigin={imageCors(src)} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onError={() => setBroken(true)} />
       ) : (
         <Icon name="bag" size={20} stroke={1.6} />
       )}
