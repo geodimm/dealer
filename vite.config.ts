@@ -17,7 +17,7 @@ export default defineConfig({
       injectRegister: false,
       injectManifest: {
         // offers.json is fetched and cached by the app itself (IndexedDB).
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,woff2}'],
         globIgnores: ['data/**'],
       },
       manifest: {

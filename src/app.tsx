@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import type { Counts, DataFile, InboxItem, ListItem, Offer, Watch } from './lib/types';
 import { euro, isoDay, orderCategories, whenLabel } from './lib/offers';
 import { idbGet } from './lib/idb';
-import { alertBody, alertFor, getCachedData, getCounts, getInbox, getWatches, refresh, saveInbox, saveWatches, watchMatches } from './lib/watch';
+import { alertBody, alertFor, getCachedData, getCounts, getInbox, getWatches, refresh, saveInbox, saveWatches, termFrom, watchMatches } from './lib/watch';
 import { idbSet } from './lib/idb';
 import { useApplyTheme, useCatOrder, useFilters, useGroup, useList, useSort, useStored, useTheme } from './lib/prefs';
 import { backgroundStatus, disableBackground, enableAlerts, permission, showNotification, type Background } from './lib/alerts';
@@ -48,14 +48,6 @@ const newWatch = (term = ''): Watch => ({
   exclude: [],
   createdAt: Date.now(),
 });
-
-/** A sensible starting search term from an offer's name. */
-const termFrom = (o: Offer) =>
-  o.name
-    .replace(/\s*(различни|избрани)\s+(видове|вкусове|цветове|модели)\.?$/i, '')
-    .replace(/\s*\d+([.,]\d+)?\s*(г|кг|мл|л|g|kg|ml|l)\b.*$/i, '')
-    .trim();
-
 export function App() {
   const [route, setRoute] = useState<Route>(routeFromHash);
   const [query, setQuery] = useState('');
@@ -128,13 +120,13 @@ export function App() {
     async (manual = false) => {
       setRefreshing(true);
       const before = (await getCachedData())?.generatedAt;
-      const fresh = await refresh(DATA_URL, alertsOn ? showNotification : null);
+      const { data: fresh, fetched } = await refresh(DATA_URL, alertsOn ? showNotification : null);
       if (fresh) setData(fresh);
       setInbox(await getInbox());
       setCheckedAt((await idbGet<number>('checkedAt')) ?? null);
       setRefreshing(false);
       setLoading(false);
-      if (manual) say(!fresh ? 'Няма връзка – показвам запазените оферти' : fresh.generatedAt !== before ? 'Офертите са обновени' : 'Няма нови оферти');
+      if (manual) say(!fetched ? 'Няма връзка – показвам запазените оферти' : fresh?.generatedAt !== before ? 'Офертите са обновени' : 'Няма нови оферти');
     },
     [alertsOn, say],
   );
@@ -188,6 +180,8 @@ export function App() {
     const clean = (r: Route) => history.replaceState(history.state, '', `${location.pathname}#/${r}`);
     if (incoming.kind === 'offer') {
       const o = data!.offers.find((x) => x.id === incoming.id);
+      // The cached data can predate the offer; wait for the refresh in flight.
+      if (!o && refreshing) return;
       if (o) setDetail(o);
       else say('Тази оферта вече не е активна');
       clean('offers');
@@ -210,7 +204,7 @@ export function App() {
       clean('list');
     }
     setIncoming(null);
-  }, [incoming, data]);
+  }, [incoming, data, refreshing]);
 
   const shared = (res: 'shared' | 'copied' | 'failed') => {
     if (res === 'copied') say('Линкът е копиран');

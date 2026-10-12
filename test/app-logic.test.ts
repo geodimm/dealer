@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fold, tokens, matchesTokens } from '../src/lib/text';
 import { filterOffers, groupOffers, sortOffers, whenLabel } from '../src/lib/offers';
-import { watchMatches } from '../src/lib/watch';
+import { termFrom, watchMatches } from '../src/lib/watch';
 import { DEFAULT_FILTERS } from '../src/lib/prefs';
 import type { Offer, Watch } from '../src/lib/types';
 
@@ -32,6 +32,14 @@ describe('search folding', () => {
     expect(matchesTokens(fold('Nutella'), tokens('нутела'))).toBe(true);
     expect(matchesTokens(fold('Nescafé Dolce Gusto'), tokens('nescafe dolce'))).toBe(true);
     expect(matchesTokens(fold('Кафе'), tokens('чай'))).toBe(false);
+  });
+
+  it('matches "й" typed as "y" or "i"', () => {
+    expect(matchesTokens(fold('Черен чай'), tokens('chay'))).toBe(true);
+    expect(matchesTokens(fold('Черен чай'), tokens('chai'))).toBe(true);
+    expect(matchesTokens(fold('Майонеза'), tokens('mayoneza'))).toBe(true);
+    expect(matchesTokens(fold('Йогурт'), tokens('yogurt'))).toBe(true);
+    expect(fold('чаи\u0306')).toBe(fold('чай'));
   });
 });
 
@@ -128,5 +136,20 @@ describe('price per piece', () => {
   });
   it('ignores stores the user turned off', () => {
     expect(watchMatches(w({}), pellini, TODAY, { hiddenStores: ['kaufland'] })).toBe(false);
+  });
+});
+
+describe('termFrom', () => {
+  it.each([
+    ['Гроздова ракия 0,5 л', 'Гроздова ракия'],
+    ['Кисело мляко 3,6% 400 г', 'Кисело мляко 3,6%'],
+    ['Бира 2 l', 'Бира'],
+    ['Чипс различни видове', 'Чипс'],
+    ['Бира 6 х 0,5 л кен', 'Бира'],
+    ['Вино 5 години', 'Вино 5 години'],
+  ])('%s → %s', (name, term) => expect(termFrom({ name, brand: '' } as Offer)).toBe(term));
+
+  it('falls back to the brand when the name is only a size', () => {
+    expect(termFrom({ name: '8 x 0,33 л кен промопакет', brand: 'COCA-COLA' } as Offer)).toBe('COCA-COLA');
   });
 });

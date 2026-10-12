@@ -1,6 +1,7 @@
 // Search normalization. Text and queries are folded to a Latin "skeleton":
-// lower-case, accents removed, Bulgarian Cyrillic transliterated, repeated
-// letters collapsed. So "sirene" finds "сирене" and "nutela" finds "Nutella".
+// lower-case, Bulgarian Cyrillic transliterated, accents removed, "y" read as
+// "i", repeated letters collapsed. So "sirene" finds "сирене", "nutela" finds
+// "Nutella", and both "chay" and "chai" find "чай".
 
 const BG: Record<string, string> = {
   а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y',
@@ -10,10 +11,13 @@ const BG: Record<string, string> = {
 };
 
 export function fold(s: string): string {
-  const lower = s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  // Transliterate before stripping marks: NFD would turn "й" into "и" + breve.
   let out = '';
-  for (const ch of lower) out += BG[ch] ?? ch;
+  for (const ch of s.toLowerCase().normalize('NFC')) out += BG[ch] ?? ch;
   return out
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/y/g, 'i')
     .replace(/[^a-z0-9%]+/g, ' ')
     .replace(/([a-z])\1+/g, '$1')
     .trim();

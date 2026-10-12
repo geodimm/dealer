@@ -8,6 +8,9 @@ describe('unitPrice', () => {
   it.each([
     [1.59, '250 г', { value: 6.36, unit: 'kg' }],
     [1.99, '4 х 95 г', { value: 5.24, unit: 'kg' }],
+    [4.64, '25 бр. х 2 г', { value: 92.8, unit: 'kg' }],
+    [1.53, '10 бр. х 5 г', { value: 30.6, unit: 'kg' }],
+    [3.25, '2 броя х 180 г', { value: 9.03, unit: 'kg' }],
     [4.99, '0,75 л', { value: 6.65, unit: 'l' }],
     [8.16, '12 x 0.5 l', { value: 1.36, unit: 'l' }],
     [0.38, 'за kg', { value: 0.38, unit: 'kg' }],
@@ -105,6 +108,18 @@ describe('categorize: aisle collisions', () => {
     ['Свинско месо в собствен сос', 'meat'],
     ['Сос Бешамел', 'sauces'],
     ['Морски дарове в сос', 'fish'],
+    ['Капсули за пране 4 в 1', 'household'],
+    ['Таблетки за съдомиялна All in One лимон', 'household'],
+    ['Мицеларна вода', 'cosmetics'],
+    ['Вода за уста Coolmint', 'cosmetics'],
+    ['Чиния за основно, маслинено зелен цвят', 'nonfood'],
+    ['BILLA ГРАДИНИ Пиперки зелени', 'produce'],
+    ['Хумус различни видове', 'breakfast'],
+    ['Хляб със семена', 'bakery'],
+    ['Джинджифил', 'produce'],
+    ['Джин', 'alcohol'],
+    ['Бира Столично', 'alcohol'],
+    ['Лютеница в буркан', 'canned'],
   ])('%s → %s', (name, cat) => expect(categorize({ name })).toBe(cat));
 });
 

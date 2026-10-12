@@ -48,6 +48,17 @@ export const getInbox = async () => (await idbGet<InboxItem[]>('inbox')) ?? [];
 export const saveInbox = (items: InboxItem[]) => idbSet('inbox', items.slice(0, 100));
 export const getCachedData = () => idbGet<DataFile>('data');
 
+/** A sensible starting search term from an offer's name. */
+export function termFrom(o: Offer): string {
+  const term = o.name
+    // Not `\b`: it only knows ASCII letters, so it never fires after "г" or "л".
+    .replace(/\s*(\d+\s*[xх]\s*)?\d+([.,]\d+)?\s*(г|кг|мл|л|g|kg|ml|l)(?![а-яa-z]).*$/i, '')
+    .replace(/\s*(различни|избрани)\s+(видове|вкусове|цветове|модели)\.?$/i, '')
+    .trim();
+  // Some names are only a size ("8 x 0,33 л кен") or "различни видове".
+  return /[а-яa-z]{2}/i.test(term) ? term : o.brand || o.name;
+}
+
 /** Save watches; offers already matching a new watch count as "seen" so we don't ping about them. */
 export async function saveWatches(watches: Watch[]) {
   await idbSet('watches', watches);
@@ -104,9 +115,13 @@ export type Notify = (title: string, options: NotificationOptions) => Promise<vo
 
 /**
  * Download the latest offers, cache them, and notify about watch matches we
- * haven't told the user about yet. Returns the data (fresh, or cached on failure).
+ * haven't told the user about yet. Returns the data (fresh, or cached on
+ * failure) and whether the download worked.
  */
-export async function refresh(dataUrl: string, notify: Notify | null): Promise<DataFile | undefined> {
+export async function refresh(
+  dataUrl: string,
+  notify: Notify | null,
+): Promise<{ data: DataFile | undefined; fetched: boolean }> {
   let data: DataFile | undefined;
   try {
     const res = await fetch(dataUrl, { cache: 'no-cache' });
@@ -115,13 +130,13 @@ export async function refresh(dataUrl: string, notify: Notify | null): Promise<D
     await idbSet('data', data);
     await idbSet('checkedAt', Date.now());
   } catch {
-    return getCachedData();
+    return { data: await getCachedData(), fetched: false };
   }
 
   const watches = await getWatches();
   const notified = new Set((await idbGet<string[]>('notified')) ?? []);
   const fresh = await markNotified(watches, data.offers, notified);
-  if (!fresh.length) return data;
+  if (!fresh.length) return { data, fetched: true };
 
   // Every new match lands in the in-app inbox; a system notification is extra.
   const today = isoDay();
@@ -136,5 +151,5 @@ export async function refresh(dataUrl: string, notify: Notify | null): Promise<D
   }));
   await saveInbox([...items, ...(await getInbox())]);
   if (notify) for (const it of items) await notify(...alertFor(it.term, it.body, it.watchId, it.starting));
-  return data;
+  return { data, fetched: true };
 }

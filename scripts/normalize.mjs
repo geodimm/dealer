@@ -15,8 +15,8 @@ const UNITS = '(кг|kg|гр|г|g|мл|ml|л|l)(?![а-яa-z])';
 
 /**
  * Price per kg or litre from a pack description such as "250 г",
- * "4 х 95 г", "0,75 л" or "за kg". Returns null for ranges ("88 - 256 г")
- * and anything we can't read with confidence.
+ * "4 х 95 г", "25 бр. х 2 г", "0,75 л" or "за kg". Returns null for ranges
+ * ("88 - 256 г") and anything we can't read with confidence.
  */
 export function unitPrice(price, pack) {
   if (price == null || !pack) return null;
@@ -25,7 +25,7 @@ export function unitPrice(price, pack) {
   if (/^(за\s*)?(кг|kg)(\.|$|\s)/.test(p.trim())) return { value: round2(price), unit: 'kg' };
   if (/^(за\s*)?(л|l)(\.|$|\s)/.test(p.trim())) return { value: round2(price), unit: 'l' };
 
-  const multi = p.match(new RegExp(`${NUM}\\s*x\\s*${NUM}\\s*${UNITS}`, 'u'));
+  const multi = p.match(new RegExp(`${NUM}\\s*(?:бр\\.?|броя|брой)?\\s*x\\s*${NUM}\\s*${UNITS}`, 'u'));
   const single = p.match(new RegExp(`${NUM}\\s*${UNITS}`, 'u'));
   let qty;
   let unit;
