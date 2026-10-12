@@ -93,6 +93,8 @@ export interface InboxItem {
   watchId: string;
   term: string;
   body: string;
+  /** The promo was announced earlier and starts today. */
+  starting?: boolean;
   at: number;
   read: boolean;
 }

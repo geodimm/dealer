@@ -55,16 +55,29 @@ export async function saveWatches(watches: Watch[]) {
   if (data) await markNotified(watches, data.offers, new Set((await idbGet<string[]>('notified')) ?? []));
 }
 
+// An offer is announced before it starts (Kaufland publishes next week's on
+// Thursday), so a match is pinged twice: once when announced ("soon") and once
+// on the day it starts ("now"). An offer first seen already running gets one.
+const stage = (o: Offer, today: string) => (o.from && o.from > today ? 'soon' : 'now');
+const seenKey = (w: Watch, o: Offer, st: string) => `${w.id}|${o.id}|${st}`;
+
 async function markNotified(watches: Watch[], offers: Offer[], notified: Set<string>) {
   const today = isoDay();
   const ctx = await getCtx();
-  const fresh: { watch: Watch; hits: Offer[] }[] = [];
+  const fresh: { watch: Watch; hits: Offer[]; starting: boolean }[] = [];
   const keep = new Set<string>();
+  // Keys from before stages ("watch|offer") count as the "soon" ping.
+  const seen = (w: Watch, o: Offer, st: string) => notified.has(seenKey(w, o, st)) || (st === 'soon' && notified.has(`${w.id}|${o.id}`));
   for (const w of watches) {
     const hits = offers.filter((o) => watchMatches(w, o, today, ctx));
-    const unseen = hits.filter((o) => !notified.has(`${w.id}|${o.id}`));
-    if (unseen.length) fresh.push({ watch: w, hits: unseen });
-    for (const o of hits) keep.add(`${w.id}|${o.id}`);
+    const unseen = hits.filter((o) => !seen(w, o, stage(o, today)));
+    // "Starting today" when every new hit was already announced as upcoming.
+    const starting = unseen.length > 0 && unseen.every((o) => seen(w, o, 'soon'));
+    if (unseen.length) fresh.push({ watch: w, hits: unseen, starting });
+    for (const o of hits) {
+      keep.add(seenKey(w, o, stage(o, today)));
+      if (seen(w, o, 'soon')) keep.add(seenKey(w, o, 'soon'));
+    }
   }
   // Only keep keys for offers that still exist, so the set can't grow forever.
   await idbSet('notified', [...keep]);
@@ -80,8 +93,10 @@ export function alertBody(hits: Offer[], data: DataFile, today: string) {
   return parts.join(' · ') + (hits.length > 1 ? ` · и още ${hits.length - 1}` : '');
 }
 
-export const alertFor = (term: string, body: string, watchId: string): [string, NotificationOptions] => [
-  `„${term}“ е в промоция`,
+export const alertTitle = (term: string, starting = false) => (starting ? `„${term}“ – промоцията започна` : `„${term}“ е в промоция`);
+
+export const alertFor = (term: string, body: string, watchId: string, starting = false): [string, NotificationOptions] => [
+  alertTitle(term, starting),
   { body, tag: `watch-${watchId}`, icon: 'icons/icon-192.png', badge: 'icons/badge-96.png', data: { url: '#/inbox' } },
 ];
 
@@ -110,15 +125,16 @@ export async function refresh(dataUrl: string, notify: Notify | null): Promise<D
 
   // Every new match lands in the in-app inbox; a system notification is extra.
   const today = isoDay();
-  const items: InboxItem[] = fresh.map(({ watch, hits }) => ({
+  const items: InboxItem[] = fresh.map(({ watch, hits, starting }) => ({
     id: `${watch.id}-${Date.now()}`,
     watchId: watch.id,
     term: watch.term,
+    starting,
     body: alertBody(hits, data!, today),
     at: Date.now(),
     read: false,
   }));
   await saveInbox([...items, ...(await getInbox())]);
-  if (notify) for (const it of items) await notify(...alertFor(it.term, it.body, it.watchId));
+  if (notify) for (const it of items) await notify(...alertFor(it.term, it.body, it.watchId, it.starting));
   return data;
 }

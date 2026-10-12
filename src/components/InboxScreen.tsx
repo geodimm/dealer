@@ -1,3 +1,4 @@
+import { alertTitle } from '../lib/watch';
 import type { InboxItem } from '../lib/types';
 import { isoDay, addDays } from '../lib/offers';
 import { Icon } from './Icon';
@@ -57,7 +58,7 @@ export function InboxScreen({
                   </span>
                   <span class="grow">
                     <span class="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
-                      <strong>„{it.term}“ е в промоция</strong>
+                      <strong>{alertTitle(it.term, it.starting)}</strong>
                       <span class="muted small">{time(it.at)}</span>
                     </span>
                     <span class="nbody">{it.body}</span>
